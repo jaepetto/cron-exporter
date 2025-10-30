@@ -1,0 +1,19 @@
+[tasks.test]
+run = "go test ./..."
+description = "Run all tests"
+
+[tasks.build]
+run = "go build -o bin/cronmetrics ./cmd/cronmetrics"
+description = "Build static binary"
+
+[tasks.dev]
+run = "./bin/cronmetrics serve --dev"
+description = "Start development server"
+
+[tasks.clean]
+run = "rm -rf bin/"
+description = "Clean build artifacts"
+
+[tasks.lint]
+run = "go vet ./... && go fmt ./..."
+description = "Run linter and formatter"
