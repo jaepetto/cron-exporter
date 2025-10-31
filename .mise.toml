@@ -39,12 +39,146 @@ run = "./bin/cronmetrics serve --dev"
 description = "Start development server"
 
 [tasks.clean]
-run = "rm -rf bin/ coverage*.out coverage*.html"
+run = "rm -rf bin/ dist/ coverage*.out coverage*.html"
 description = "Clean build artifacts and coverage reports"
 
 [tasks.lint]
 run = "go vet ./... && go fmt ./..."
 description = "Run linter and formatter"
+
+[tasks.build-all]
+run = '''
+#!/bin/bash
+set -e
+echo "Building cronmetrics for all platforms..."
+
+# Build flags for maximum portability
+BUILD_FLAGS="-a -installsuffix cgo -ldflags '-w -s -extldflags \"-static\"'"
+APP_NAME="cronmetrics"
+MAIN_PATH="./cmd/cronmetrics"
+
+# Create dist directory
+mkdir -p dist
+
+# Define target platforms
+declare -a platforms=(
+    "linux/amd64"
+    "linux/arm64"
+    "linux/386"
+    "darwin/amd64"
+    "darwin/arm64"
+    "windows/amd64"
+    "windows/386"
+    "freebsd/amd64"
+    "openbsd/amd64"
+    "netbsd/amd64"
+)
+
+# Build for each platform
+for platform in "${platforms[@]}"; do
+    IFS='/' read -r GOOS GOARCH <<< "$platform"
+
+    # Set output filename
+    output_name="${APP_NAME}-${GOOS}-${GOARCH}"
+    if [ "$GOOS" = "windows" ]; then
+        output_name="${output_name}.exe"
+    fi
+
+    echo "Building for $GOOS/$GOARCH..."
+
+    # Build with static linking and no CGO for maximum portability
+    env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
+        go build -a -installsuffix cgo \
+        -ldflags '-w -s -extldflags "-static"' \
+        -o "dist/$output_name" "$MAIN_PATH"
+
+    # Verify the binary was created
+    if [ -f "dist/$output_name" ]; then
+        size=$(du -h "dist/$output_name" | cut -f1)
+        echo "✓ Built dist/$output_name ($size)"
+    else
+        echo "✗ Failed to build dist/$output_name"
+        exit 1
+    fi
+done
+
+echo ""
+echo "All builds completed successfully!"
+echo "Binaries available in dist/ directory:"
+ls -la dist/
+'''
+description = "Build static binaries for all platforms with maximum portability"
+
+[tasks.build-release]
+run = '''
+#!/bin/bash
+set -e
+echo "Building release binaries..."
+
+# Get version from git tag or use development version
+if git describe --tags --exact-match HEAD >/dev/null 2>&1; then
+    VERSION=$(git describe --tags --exact-match HEAD)
+else
+    VERSION="dev-$(git rev-parse --short HEAD)"
+fi
+
+BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+GIT_COMMIT=$(git rev-parse HEAD)
+
+# Build flags with version information
+LDFLAGS="-w -s -extldflags \"-static\" -X main.version=$VERSION -X main.buildTime=$BUILD_TIME -X main.gitCommit=$GIT_COMMIT"
+APP_NAME="cronmetrics"
+MAIN_PATH="./cmd/cronmetrics"
+
+# Create dist directory
+mkdir -p dist
+
+# Define target platforms for release
+declare -a platforms=(
+    "linux/amd64"
+    "linux/arm64"
+    "darwin/amd64"
+    "darwin/arm64"
+    "windows/amd64"
+)
+
+# Build for each platform
+for platform in "${platforms[@]}"; do
+    IFS='/' read -r GOOS GOARCH <<< "$platform"
+
+    # Set output filename with version
+    output_name="${APP_NAME}-${VERSION}-${GOOS}-${GOARCH}"
+    if [ "$GOOS" = "windows" ]; then
+        output_name="${output_name}.exe"
+    fi
+
+    echo "Building release for $GOOS/$GOARCH..."
+
+    # Build with version information
+    env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" \
+        go build -a -installsuffix cgo \
+        -ldflags "$LDFLAGS" \
+        -o "dist/$output_name" "$MAIN_PATH"
+
+    # Create compressed archive
+    if [ "$GOOS" = "windows" ]; then
+        zip -j "dist/${APP_NAME}-${VERSION}-${GOOS}-${GOARCH}.zip" "dist/$output_name"
+    else
+        tar -czf "dist/${APP_NAME}-${VERSION}-${GOOS}-${GOARCH}.tar.gz" -C dist "$output_name"
+    fi
+
+    # Remove uncompressed binary
+    rm "dist/$output_name"
+
+    echo "✓ Created release archive for $GOOS/$GOARCH"
+done
+
+echo ""
+echo "Release build completed!"
+echo "Archives available in dist/ directory:"
+ls -la dist/
+'''
+description = "Build release binaries with version info and create compressed archives"
 
 [tasks.ci]
 run = "mise run lint && mise run test-all && mise run build"

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **Cross-platform build system** - New mise tasks for building static binaries across all major platforms
+  - `mise run build-all` - Build for 10+ platforms (Linux, macOS, Windows, BSD variants)
+  - `mise run build-release` - Create versioned release archives with compression
+  - Static linking with CGO disabled for maximum portability (~22MB binaries)
+  - Automatic version embedding from git tags in release builds
+  - Support for all major architectures: amd64, arm64, 386
 - **Job ID-based operations system** - All job operations now use auto-incrementing IDs instead of name+host combinations
 - Auto-incrementing primary key ID field for jobs table with database migration
 - New JobStore methods: `GetJobByID()`, `UpdateJobByID()`, `DeleteJobByID()` for ID-based operations

@@ -362,13 +362,44 @@ go test ./... -cover
 
 ### Building
 
+#### Single Platform Build
+
 ```bash
-# Build binary
+# Build binary for current platform
 mise run build
 
 # Build for development
 go build -o bin/cronmetrics ./cmd/cronmetrics
 ```
+
+#### Cross-Platform Build
+
+Build static, portable binaries for all supported platforms:
+
+```bash
+# Build for all platforms (Linux, macOS, Windows, BSD variants)
+mise run build-all
+
+# Build release archives with version information
+mise run build-release
+```
+
+**Supported Platforms:**
+
+- Linux: amd64, arm64, 386
+- macOS: amd64 (Intel), arm64 (Apple Silicon)
+- Windows: amd64, 386
+- FreeBSD, OpenBSD, NetBSD: amd64
+
+**Features:**
+
+- ✅ **Static binaries** - No external dependencies (CGO disabled)
+- ✅ **Stripped binaries** - Optimized size (~22MB per binary)
+- ✅ **Cross-compilation** - Build all platforms from any host
+- ✅ **Release archives** - Compressed `.tar.gz` (Unix) and `.zip` (Windows) packages
+- ✅ **Version embedding** - Automatic version detection from git tags
+
+All binaries are created in the `dist/` directory with clear naming: `cronmetrics-{os}-{arch}[.exe]`
 
 ### Development Commands
 
@@ -379,9 +410,28 @@ mise run dev
 # Run linting
 mise run lint
 
+# Clean build artifacts
+mise run clean
+
 # View available tasks
 mise tasks
 ```
+
+### Available Mise Tasks
+
+| Task | Description |
+|------|-------------|
+| `build` | Build binary for current platform |
+| `build-all` | Build static binaries for all platforms |
+| `build-release` | Build release archives with version info |
+| `dev` | Start development server |
+| `test` | Run unit tests |
+| `test-all` | Run all tests (unit + integration + e2e) |
+| `test-integration` | Run integration tests |
+| `test-e2e` | Run end-to-end tests |
+| `lint` | Run linter and formatter |
+| `clean` | Clean build artifacts and coverage reports |
+| `ci` | Run full CI pipeline |
 
 ## Contributing
 

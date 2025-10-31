@@ -90,6 +90,26 @@ mise run test-e2e          # End-to-end tests only
 mise run test-coverage
 ```
 
+### Build Testing
+
+Before running tests, ensure the build system works correctly:
+
+```bash
+# Test single platform build
+mise run build
+
+# Test cross-platform builds (recommended for CI)
+mise run build-all
+
+# Test release build system
+mise run build-release
+
+# Clean artifacts after testing
+mise run clean
+```
+
+**Note:** The cross-platform build tasks (`build-all`, `build-release`) are tested as part of the CI pipeline to ensure binary compatibility across all supported platforms.
+
 ### Detailed Commands
 
 ```bash
