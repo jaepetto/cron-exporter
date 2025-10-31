@@ -150,13 +150,30 @@ The system implements a two-tier authentication model:
 
 ### OpenAPI (Swagger) API
 
-See `docs/openapi.yaml` for full schema and example requests/responses.
+Complete API documentation is available through multiple formats:
 
-- `/job` [POST, GET] — create/list jobs (Admin API key required)
-- `/job/{id}` [GET, PUT, DELETE] — read/update/delete single job (Admin API key required)
-- `/job-result` [POST] — submit job result (Per-job API key required)
+- **Interactive Documentation**: Swagger UI at `/swagger/` endpoint
+- **Machine-readable Spec**: OpenAPI 3.0.3 specification at `/api/openapi.yaml`
+- **Source Documentation**: `docs/openapi.yaml` contains the complete schema
+
+#### API Endpoints
+
+- `/api/job` [POST, GET] — create/list jobs (Admin API key required)
+- `/api/job/{id}` [GET, PUT, DELETE] — read/update/delete single job (Admin API key required)
+- `/api/job-result` [POST] — submit job result (Per-job API key required)
 - `/metrics` [GET] — Prometheus metrics (No authentication)
 - `/health` [GET] — Health check (No authentication)
+- `/swagger/` [GET] — Interactive Swagger UI documentation (No authentication)
+- `/api/openapi.yaml` [GET] — OpenAPI 3.1 specification (No authentication)
+
+#### Swagger UI Features
+
+The integrated Swagger UI provides:
+- **Interactive API Testing**: Execute API calls directly from the browser
+- **Authentication Support**: Built-in support for both admin and per-job API key authentication
+- **Schema Documentation**: Complete request/response schemas with examples
+- **Real-time Validation**: Input validation and error handling examples
+- **Export Capabilities**: Download OpenAPI spec for external tooling
 
 ### Tooling & Codebase
 

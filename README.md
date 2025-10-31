@@ -199,6 +199,28 @@ cronjob_total 5
 | DELETE | `/api/job/{id}` | Delete a job | Admin API key |
 | GET | `/metrics` | Prometheus metrics | None |
 | GET | `/health` | Health check | None |
+| GET | `/swagger/` | Interactive Swagger UI documentation | None |
+| GET | `/api/openapi.yaml` | OpenAPI 3.0.3 specification | None |
+
+### API Documentation
+
+The complete API documentation is available through the interactive Swagger UI:
+
+- **Swagger UI**: Visit `http://localhost:8080/swagger/` when the server is running
+- **OpenAPI 3.0.3 Spec**: Available at `http://localhost:8080/api/openapi.yaml`
+
+The Swagger UI provides:
+- Interactive API exploration and testing
+- Complete request/response schemas
+- Authentication examples for both admin and per-job API keys
+- Comprehensive endpoint documentation with examples
+
+#### Quick API Testing with Swagger UI
+
+1. Start the server: `./bin/cronmetrics serve --dev`
+2. Open your browser to: `http://localhost:8080/swagger/`
+3. Explore the API endpoints and try them out interactively
+4. Use the "Authorize" button to test with API keys
 
 ## Configuration
 

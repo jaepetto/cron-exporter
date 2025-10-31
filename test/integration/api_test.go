@@ -354,3 +354,76 @@ func TestJobCRUDValidation(t *testing.T) {
 		assert.Equal(t, "invalid", job["status"])
 	})
 }
+
+func TestSwaggerUIEndpoints(t *testing.T) {
+	server := testutil.NewTestServer(t)
+	defer server.Close()
+
+	client := testutil.NewHTTPClient(t, server.URL())
+
+	t.Run("OpenAPISpecEndpoint", func(t *testing.T) {
+		// Test OpenAPI spec endpoint
+		response := client.GET("/api/openapi.yaml").
+			ExpectStatus(200).
+			ExpectHeader("Content-Type", "application/yaml").
+			ExpectContains("openapi: 3.0.3").
+			ExpectContains("title: Cron Metrics Collector & Exporter API").
+			ExpectContains("/api/job:").
+			ExpectContains("/api/job-result:").
+			ExpectContains("/metrics:").
+			ExpectContains("/health:").
+			ExpectContains("AdminAPIKey:").
+			ExpectContains("JobAPIKey:")
+
+		// Verify components and schemas are present
+		response.ExpectContains("components:").
+			ExpectContains("schemas:").
+			ExpectContains("Job:").
+			ExpectContains("CreateJobRequest:").
+			ExpectContains("JobResult:")
+
+		defer response.Close()
+	})
+
+	t.Run("SwaggerUIEndpoint", func(t *testing.T) {
+		// Test Swagger UI endpoint (serves the HTML directly)
+		response := client.GET("/swagger/").
+			ExpectStatus(200).
+			ExpectHeader("Content-Type", "text/html; charset=utf-8").
+			ExpectContains("Swagger UI").
+			ExpectContains("swagger-ui").
+			ExpectContains("\\/api\\/openapi.yaml") // Should reference our OpenAPI spec URL (escaped in JS)
+
+		defer response.Close()
+	})
+
+	t.Run("SwaggerUIIndexPage", func(t *testing.T) {
+		// Test Swagger UI index page
+		response := client.GET("/swagger/index.html").
+			ExpectStatus(200).
+			ExpectHeader("Content-Type", "text/html; charset=utf-8").
+			ExpectContains("Swagger UI").
+			ExpectContains("swagger-ui").
+			ExpectContains("\\/api\\/openapi.yaml") // Should reference our OpenAPI spec URL (escaped in JS)
+
+		defer response.Close()
+	})
+
+	t.Run("OpenAPISpecCaching", func(t *testing.T) {
+		// Test that OpenAPI spec has appropriate caching headers
+		response := client.GET("/api/openapi.yaml").
+			ExpectStatus(200).
+			ExpectHeader("Cache-Control", "public, max-age=3600")
+
+		defer response.Close()
+	})
+
+	t.Run("SwaggerUIMethodNotAllowed", func(t *testing.T) {
+		// Test that POST to OpenAPI spec endpoint returns 405
+		response := client.POST("/api/openapi.yaml", nil).
+			ExpectStatus(405).
+			ExpectHeader("Content-Type", "application/json")
+
+		defer response.Close()
+	})
+}

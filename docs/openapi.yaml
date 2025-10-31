@@ -1,0 +1,554 @@
+openapi: 3.0.3
+info:
+  title: Cron Metrics Collector & Exporter API
+  description: |
+    A Go-based API and web server to centralize cron job results and export their statuses as Prometheus-compatible metrics.
+
+    ## Authentication
+
+    The API uses a two-tier authentication system:
+
+    ### Admin API Keys
+    - **Purpose**: Job management operations (CRUD)
+    - **Header**: `Authorization: Bearer <admin-api-key>`
+    - **Endpoints**: All `/api/job*` endpoints
+
+    ### Per-Job API Keys
+    - **Purpose**: Job result submissions (isolated per job)
+    - **Header**: `X-API-Key <job-specific-api-key>`
+    - **Endpoints**: `/api/job-result`
+    - **Security**: Jobs can only submit results for themselves
+
+  version: 0.3.0
+  contact:
+    name: Cron Exporter API Support
+    url: https://github.com/jaep/cron-exporter
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://cronmetrics.example.com
+    description: Production server
+
+paths:
+  # Job Management Endpoints (Admin API Key Required)
+  /api/job:
+    get:
+      summary: List all jobs
+      description: Retrieve a list of all registered cron jobs with optional label filtering
+      tags:
+        - Job Management
+      security:
+        - AdminAPIKey: []
+      parameters:
+        - name: label
+          in: query
+          description: "Filter jobs by label (format: key=value)"
+          required: false
+          schema:
+            type: string
+            example: "env=prod"
+      responses:
+        '200':
+          description: Successfully retrieved job list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Job'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create a new job
+      description: Register a new cron job with automatic API key generation
+      tags:
+        - Job Management
+      security:
+        - AdminAPIKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobRequest'
+      responses:
+        '201':
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/job/{id}:
+    get:
+      summary: Get job by ID
+      description: Retrieve a specific job by its ID
+      tags:
+        - Job Management
+      security:
+        - AdminAPIKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Successfully retrieved job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Update job by ID
+      description: Update an existing job configuration
+      tags:
+        - Job Management
+      security:
+        - AdminAPIKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJobRequest'
+      responses:
+        '200':
+          description: Job updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete job by ID
+      description: Remove a job from the system
+      tags:
+        - Job Management
+      security:
+        - AdminAPIKey: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Job ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '204':
+          description: Job deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Job Result Submission (Per-Job API Key Required)
+  /api/job-result:
+    post:
+      summary: Submit job execution result
+      description: Submit the result of a cron job execution using the job's unique API key
+      tags:
+        - Job Results
+      security:
+        - JobAPIKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobResult'
+      responses:
+        '201':
+          description: Job result submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # Public Endpoints (No Authentication Required)
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Retrieve Prometheus-formatted metrics for all registered jobs
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP cronjob_status Status of cron job: 1=success, 0=failure, -1=maintenance/paused
+                  # TYPE cronjob_status gauge
+                  cronjob_status{job_name="backup",host="web1",env="prod",status="success"} 1
+                  cronjob_status{job_name="maintenance_job",host="web2",status="maintenance"} -1
+
+                  # HELP cronjob_last_run_timestamp Timestamp of last job execution
+                  # TYPE cronjob_last_run_timestamp gauge
+                  cronjob_last_run_timestamp{job_name="backup",host="web1"} 1698696960
+
+                  # HELP cronjob_total Total number of registered cron jobs
+                  # TYPE cronjob_total gauge
+                  cronjob_total 2
+
+  /health:
+    get:
+      summary: Health check
+      description: Check the health status of the API server
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    AdminAPIKey:
+      type: http
+      scheme: bearer
+      description: Admin API key for job management operations
+
+    JobAPIKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Per-job API key for result submissions
+
+  schemas:
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Auto-incrementing job ID
+          example: 1
+        job_name:
+          type: string
+          description: Unique job name
+          example: "daily-backup"
+        host:
+          type: string
+          description: Host where the job runs
+          example: "db-server-01"
+        api_key:
+          type: string
+          description: Per-job API key for result submissions
+          example: "cm_abc123456789abcdef123456789abcdef123456789abcd"
+        automatic_failure_threshold:
+          type: integer
+          description: Seconds after which job is considered failed if no result submitted
+          example: 3600
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: User-defined labels for the job
+          example:
+            env: "prod"
+            team: "platform"
+            type: "backup"
+        status:
+          type: string
+          enum: ["active", "maintenance", "paused"]
+          description: Job lifecycle status
+          example: "active"
+        last_reported_at:
+          type: string
+          format: date-time
+          description: Timestamp of last result submission
+          example: "2025-10-30T19:56:00Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Job creation timestamp
+          example: "2025-10-30T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Job last update timestamp
+          example: "2025-10-30T19:56:00Z"
+      required:
+        - id
+        - job_name
+        - host
+        - automatic_failure_threshold
+        - labels
+        - status
+        - last_reported_at
+        - created_at
+        - updated_at
+
+    CreateJobRequest:
+      type: object
+      properties:
+        job_name:
+          type: string
+          description: Unique job name
+          example: "daily-backup"
+        host:
+          type: string
+          description: Host where the job runs
+          example: "db-server-01"
+        api_key:
+          type: string
+          description: Custom API key (optional, auto-generated if not provided)
+          example: "cm_custom123456789abcdef123456789abcdef123456789abc"
+        automatic_failure_threshold:
+          type: integer
+          description: "Seconds after which job is considered failed (default: 3600)"
+          example: 7200
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: User-defined labels for the job
+          example:
+            env: "prod"
+            team: "platform"
+            type: "backup"
+        status:
+          type: string
+          enum: ["active", "maintenance", "paused"]
+          description: "Job lifecycle status (default: active)"
+          example: "active"
+      required:
+        - job_name
+        - host
+
+    UpdateJobRequest:
+      type: object
+      properties:
+        job_name:
+          type: string
+          description: Updated job name
+          example: "daily-backup-v2"
+        host:
+          type: string
+          description: Updated host name
+          example: "db-server-02"
+        api_key:
+          type: string
+          description: Updated API key
+          example: "cm_new123456789abcdef123456789abcdef123456789abcd"
+        automatic_failure_threshold:
+          type: integer
+          description: Updated failure threshold in seconds
+          example: 7200
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: Updated labels (replaces existing labels completely)
+          example:
+            env: "staging"
+            team: "devops"
+        status:
+          type: string
+          enum: ["active", "maintenance", "paused"]
+          description: Updated job status
+          example: "maintenance"
+
+    JobResult:
+      type: object
+      properties:
+        job_name:
+          type: string
+          description: Name of the job (must match API key)
+          example: "daily-backup"
+        host:
+          type: string
+          description: Host name (must match API key)
+          example: "db-server-01"
+        status:
+          type: string
+          enum: ["success", "failure"]
+          description: Execution result status
+          example: "success"
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional labels for this execution
+          example:
+            env: "prod"
+            backup_type: "full"
+        duration:
+          type: integer
+          description: Execution duration in seconds
+          example: 120
+        output:
+          type: string
+          description: Optional execution output or error message
+          example: "Backup completed successfully. 1.2GB transferred."
+        timestamp:
+          type: string
+          format: date-time
+          description: Execution timestamp (defaults to current time if not provided)
+          example: "2025-10-30T19:56:00Z"
+      required:
+        - job_name
+        - host
+        - status
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Job result submitted successfully"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-30T19:56:00Z"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Job name and host are required"
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+          example: "2025-10-30T19:56:00Z"
+      required:
+        - error
+        - timestamp
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "ok"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-10-30T19:56:00Z"
+        version:
+          type: string
+          example: "0.3.0"
+
+  responses:
+    BadRequestError:
+      description: Bad request - invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Job name and host are required"
+            timestamp: "2025-10-30T19:56:00Z"
+
+    UnauthorizedError:
+      description: Unauthorized - missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "missing or invalid API key"
+            timestamp: "2025-10-30T19:56:00Z"
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "job not found"
+            timestamp: "2025-10-30T19:56:00Z"
+
+    ConflictError:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "job already exists"
+            timestamp: "2025-10-30T19:56:00Z"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "failed to create job"
+            timestamp: "2025-10-30T19:56:00Z"
+
+tags:
+  - name: Job Management
+    description: CRUD operations for job definitions (requires admin API key)
+  - name: Job Results
+    description: Job execution result submissions (requires per-job API key)
+  - name: Monitoring
+    description: Prometheus metrics and monitoring endpoints
+  - name: Health
+    description: Health check and status endpoints

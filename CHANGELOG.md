@@ -25,9 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Metrics collector now includes actual job result status (success/failure/maintenance)
 - Status labels in Prometheus output for better alerting and monitoring
 - Automatic failure detection with configurable per-job thresholds
+- **Interactive API documentation with Swagger UI**
+- Complete OpenAPI 3.0.3 specification with comprehensive schema definitions
+- Swagger UI interface at `/swagger/` endpoint for interactive API exploration
+- Full support for testing both admin and per-job API key authentication flows
+- OpenAPI spec available at `/api/openapi.yaml` with proper caching headers
 - **Comprehensive test suite** with 100% passing tests
 - Complete integration test coverage for all API endpoints and CLI commands
 - End-to-end workflow testing for critical user scenarios
+- Swagger UI endpoint testing to ensure documentation accuracy
 - Authentication testing for both admin and job-specific API keys
 - Metrics validation testing with proper Prometheus format verification
 

@@ -4,8 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
+
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/jaep/cron-exporter/pkg/config"
 	"github.com/jaep/cron-exporter/pkg/metrics"
@@ -46,6 +50,15 @@ func (s *Server) Handler() http.Handler {
 
 	// Health check
 	mux.HandleFunc("/health", s.handleHealth)
+
+	// Swagger UI and OpenAPI spec
+	mux.Handle("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("/api/openapi.yaml"), // The URL pointing to the OpenAPI spec
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("list"),
+		httpSwagger.DomID("swagger-ui"),
+	))
+	mux.HandleFunc("/api/openapi.yaml", s.handleOpenAPISpec)
 
 	// Add request logging middleware
 	return s.withLogging(mux)
@@ -549,6 +562,46 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSONResponse(w, http.StatusOK, health)
+}
+
+// handleOpenAPISpec serves the OpenAPI specification file
+func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		s.writeErrorResponse(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	// Find the OpenAPI spec file relative to the binary
+	specPath := "docs/openapi.yaml"
+
+	// Try to find the spec file in multiple locations
+	possiblePaths := []string{
+		specPath,                            // Relative to current working directory
+		filepath.Join(".", specPath),        // Explicit relative path
+		filepath.Join("..", specPath),       // One level up (in case running from bin/)
+		filepath.Join("..", "..", specPath), // Two levels up
+	}
+
+	var content []byte
+	var err error
+
+	for _, path := range possiblePaths {
+		content, err = os.ReadFile(path)
+		if err == nil {
+			break
+		}
+	}
+
+	if err != nil {
+		logrus.WithError(err).Errorf("Failed to read OpenAPI spec from any of these paths: %v", possiblePaths)
+		s.writeErrorResponse(w, http.StatusInternalServerError, "OpenAPI specification not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/yaml")
+	w.Header().Set("Cache-Control", "public, max-age=3600") // Cache for 1 hour
+	w.WriteHeader(http.StatusOK)
+	w.Write(content)
 }
 
 // isValidAdminAPIKey checks if the provided token is a valid admin API key
