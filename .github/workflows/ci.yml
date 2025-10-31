@@ -42,6 +42,9 @@ jobs:
     - name: Run unit tests
       run: mise run test-unit
 
+    - name: Build binary for integration tests
+      run: mise run build
+
     - name: Run integration tests
       run: mise run test-integration
 
