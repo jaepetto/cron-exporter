@@ -259,15 +259,11 @@ func (bp *BackgroundProcess) Stop() {
 	if bp.Process != nil {
 		if err := bp.Process.Kill(); err != nil {
 			// non-fatal: record the error so it isn't ignored
-			if bp.Stderr != nil {
-				fmt.Fprintf(os.Stderr, "failed to kill process (pid=%d): %v\n", bp.Process.Pid, err)
-			}
+			fmt.Fprintf(os.Stderr, "failed to kill process (pid=%d): %v\n", bp.Process.Pid, err)
 		}
 		if err := bp.Cmd.Wait(); err != nil {
 			// Wait may return non-nil when process already exited; log it
-			if bp.Stderr != nil {
-				fmt.Fprintf(os.Stderr, "process wait returned error (pid=%d): %v\n", bp.Process.Pid, err)
-			}
+			fmt.Fprintf(os.Stderr, "process wait returned error (pid=%d): %v\n", bp.Process.Pid, err)
 		}
 	}
 }
