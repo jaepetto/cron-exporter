@@ -89,11 +89,11 @@ The server will start on `http://localhost:8080` with:
   --status active
 
 # Output:
-# Job 'backup@db1' created successfully
+# Job ID 1 ('backup@db1') created successfully
 # API Key: cm_abcd1234567890abcdef1234567890abcdef1234567890abcd
 #
 # NOTE: Save this API key for your cron jobs to submit results.
-# You can retrieve it later using: cronmetrics job show --name backup --host db1
+# You can retrieve it later using: cronmetrics job show 1
 
 # Or specify a custom API key
 ./bin/cronmetrics job add \
@@ -121,24 +121,27 @@ The server will start on `http://localhost:8080` with:
 ./bin/cronmetrics job list --json
 
 # Show detailed job information (includes full API key)
-./bin/cronmetrics job show --name backup --host db1
+./bin/cronmetrics job show 1
 ```
 
 #### Update a job
 ```bash
 # Set maintenance mode
-./bin/cronmetrics job update --name backup --host db1 --maintenance
+./bin/cronmetrics job update 1 --maintenance
 
 # Update threshold
-./bin/cronmetrics job update --name backup --host db1 --threshold 7200
+./bin/cronmetrics job update 1 --threshold 7200
 
 # Update labels
-./bin/cronmetrics job update --name backup --host db1 --label env=staging --label team=devops
+./bin/cronmetrics job update 1 --label env=staging --label team=devops
+
+# Update name and host
+./bin/cronmetrics job update 1 --name backup-v2 --host db2
 ```
 
 #### Delete a job
 ```bash
-./bin/cronmetrics job delete --name backup --host db1
+./bin/cronmetrics job delete 1
 ```
 
 ### Submitting Job Results
@@ -191,9 +194,9 @@ cronjob_total 5
 | POST | `/api/job-result` | Submit job execution results | Per-job API key |
 | GET | `/api/job` | List all jobs (with optional label filters) | Admin API key |
 | POST | `/api/job` | Create a new job | Admin API key |
-| GET | `/api/job/{name}/{host}` | Get specific job details | Admin API key |
-| PUT | `/api/job/{name}/{host}` | Update job configuration | Admin API key |
-| DELETE | `/api/job/{name}/{host}` | Delete a job | Admin API key |
+| GET | `/api/job/{id}` | Get specific job details | Admin API key |
+| PUT | `/api/job/{id}` | Update job configuration | Admin API key |
+| DELETE | `/api/job/{id}` | Delete a job | Admin API key |
 | GET | `/metrics` | Prometheus metrics | None |
 | GET | `/health` | Health check | None |
 

@@ -45,6 +45,7 @@ var jobAddCmd = &cobra.Command{
 }
 
 var (
+	jobID        int
 	jobName      string
 	jobHost      string
 	jobApiKey    string
@@ -115,12 +116,12 @@ func runJobAdd(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to create job: %w", err)
 	}
 
-	fmt.Printf("Job '%s@%s' created successfully\n", jobName, jobHost)
+	fmt.Printf("Job ID %d ('%s@%s') created successfully\n", job.ID, jobName, jobHost)
 	fmt.Printf("API Key: %s\n", apiKey)
 
 	if jobApiKey == "" {
 		fmt.Println("\nNOTE: Save this API key for your cron jobs to submit results.")
-		fmt.Printf("You can retrieve it later using: cronmetrics job show --name %s --host %s\n", jobName, jobHost)
+		fmt.Printf("You can retrieve it later using: cronmetrics job show %d\n", job.ID)
 	}
 
 	return nil
@@ -192,11 +193,12 @@ func runJobList(cmd *cobra.Command) error {
 
 // jobUpdateCmd updates a job
 var jobUpdateCmd = &cobra.Command{
-	Use:   "update",
+	Use:   "update <id>",
 	Short: "Update a job",
-	Long:  `Update an existing job's configuration`,
+	Long:  `Update an existing job's configuration by ID`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := runJobUpdate(cmd); err != nil {
+		if err := runJobUpdate(cmd, args); err != nil {
 			logrus.WithError(err).Fatal("failed to update job")
 		}
 	},
@@ -210,21 +212,20 @@ var (
 )
 
 func init() {
-	jobUpdateCmd.Flags().StringVarP(&jobName, "name", "n", "", "job name (required)")
-	jobUpdateCmd.Flags().StringVar(&jobHost, "host", "", "host name (required)")
+	jobUpdateCmd.Flags().StringVarP(&jobName, "name", "n", "", "update job name")
+	jobUpdateCmd.Flags().StringVar(&jobHost, "host", "", "update host name")
 	jobUpdateCmd.Flags().StringVar(&jobApiKey, "api-key", "", "update API key for the job")
 	jobUpdateCmd.Flags().IntVar(&jobThreshold, "threshold", 0, "automatic failure threshold in seconds")
 	jobUpdateCmd.Flags().StringSliceVarP(&updateLabels, "label", "l", []string{}, "labels in key=value format")
 	jobUpdateCmd.Flags().StringVarP(&updateStatus, "status", "s", "", "job status (active, maintenance, paused)")
 	jobUpdateCmd.Flags().BoolVarP(&maintenance, "maintenance", "m", false, "set job to maintenance mode")
-
-	jobUpdateCmd.MarkFlagRequired("name")
-	jobUpdateCmd.MarkFlagRequired("host")
 }
 
-func runJobUpdate(cmd *cobra.Command) error {
-	if jobName == "" || jobHost == "" {
-		return fmt.Errorf("job name and host are required")
+func runJobUpdate(cmd *cobra.Command, args []string) error {
+	// Parse job ID from argument
+	jobID, err := parseJobID(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid job ID: %w", err)
 	}
 
 	// Load configuration and initialize database
@@ -242,12 +243,20 @@ func runJobUpdate(cmd *cobra.Command) error {
 	jobStore := model.NewJobStore(db.GetDB())
 
 	// Get existing job
-	job, err := jobStore.GetJob(jobName, jobHost)
+	job, err := jobStore.GetJobByID(jobID)
 	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)
 	}
 
 	// Update fields if provided
+	if cmd.Flags().Changed("name") {
+		job.Name = jobName
+	}
+
+	if cmd.Flags().Changed("host") {
+		job.Host = jobHost
+	}
+
 	if cmd.Flags().Changed("api-key") {
 		job.ApiKey = jobApiKey
 	}
@@ -273,37 +282,32 @@ func runJobUpdate(cmd *cobra.Command) error {
 	}
 
 	// Update job
-	if err := jobStore.UpdateJob(job); err != nil {
+	if err := jobStore.UpdateJobByID(job); err != nil {
 		return fmt.Errorf("failed to update job: %w", err)
 	}
 
-	fmt.Printf("Job '%s@%s' updated successfully\n", jobName, jobHost)
+	fmt.Printf("Job ID %d ('%s@%s') updated successfully\n", job.ID, job.Name, job.Host)
 	return nil
 }
 
 // jobDeleteCmd deletes a job
 var jobDeleteCmd = &cobra.Command{
-	Use:   "delete",
+	Use:   "delete <id>",
 	Short: "Delete a job",
-	Long:  `Delete a job definition`,
+	Long:  `Delete a job definition by ID`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := runJobDelete(cmd); err != nil {
+		if err := runJobDelete(cmd, args); err != nil {
 			logrus.WithError(err).Fatal("failed to delete job")
 		}
 	},
 }
 
-func init() {
-	jobDeleteCmd.Flags().StringVarP(&jobName, "name", "n", "", "job name (required)")
-	jobDeleteCmd.Flags().StringVar(&jobHost, "host", "", "host name (required)")
-
-	jobDeleteCmd.MarkFlagRequired("name")
-	jobDeleteCmd.MarkFlagRequired("host")
-}
-
-func runJobDelete(cmd *cobra.Command) error {
-	if jobName == "" || jobHost == "" {
-		return fmt.Errorf("job name and host are required")
+func runJobDelete(cmd *cobra.Command, args []string) error {
+	// Parse job ID from argument
+	jobID, err := parseJobID(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid job ID: %w", err)
 	}
 
 	// Load configuration and initialize database
@@ -320,39 +324,43 @@ func runJobDelete(cmd *cobra.Command) error {
 
 	jobStore := model.NewJobStore(db.GetDB())
 
+	// Get job info before deleting (for display purposes)
+	job, err := jobStore.GetJobByID(jobID)
+	if err != nil {
+		return fmt.Errorf("failed to get job: %w", err)
+	}
+
 	// Delete job
-	if err := jobStore.DeleteJob(jobName, jobHost); err != nil {
+	if err := jobStore.DeleteJobByID(jobID); err != nil {
 		return fmt.Errorf("failed to delete job: %w", err)
 	}
 
-	fmt.Printf("Job '%s@%s' deleted successfully\n", jobName, jobHost)
+	fmt.Printf("Job ID %d ('%s@%s') deleted successfully\n", job.ID, job.Name, job.Host)
 	return nil
 }
 
 // jobShowCmd shows detailed job information
 var jobShowCmd = &cobra.Command{
-	Use:   "show",
+	Use:   "show <id>",
 	Short: "Show job details",
-	Long:  `Show detailed information about a specific job`,
+	Long:  `Show detailed information about a specific job by ID`,
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := runJobShow(cmd); err != nil {
+		if err := runJobShow(cmd, args); err != nil {
 			logrus.WithError(err).Fatal("failed to show job")
 		}
 	},
 }
 
 func init() {
-	jobShowCmd.Flags().StringVarP(&jobName, "name", "n", "", "job name (required)")
-	jobShowCmd.Flags().StringVar(&jobHost, "host", "", "host name (required)")
 	jobShowCmd.Flags().BoolVarP(&outputJSON, "json", "j", false, "output as JSON")
-
-	jobShowCmd.MarkFlagRequired("name")
-	jobShowCmd.MarkFlagRequired("host")
 }
 
-func runJobShow(cmd *cobra.Command) error {
-	if jobName == "" || jobHost == "" {
-		return fmt.Errorf("job name and host are required")
+func runJobShow(cmd *cobra.Command, args []string) error {
+	// Parse job ID from argument
+	jobID, err := parseJobID(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid job ID: %w", err)
 	}
 
 	// Load configuration and initialize database
@@ -369,8 +377,8 @@ func runJobShow(cmd *cobra.Command) error {
 
 	jobStore := model.NewJobStore(db.GetDB())
 
-	// Get job
-	job, err := jobStore.GetJob(jobName, jobHost)
+	// Get job by ID
+	job, err := jobStore.GetJobByID(jobID)
 	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)
 	}
@@ -406,9 +414,9 @@ func printJobsTable(jobs []*model.Job) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	if showApiKeys {
-		fmt.Fprintln(w, "NAME\tHOST\tAPI_KEY\tSTATUS\tTHRESHOLD\tLAST_REPORTED\tLABELS")
+		fmt.Fprintln(w, "ID\tNAME\tHOST\tAPI_KEY\tSTATUS\tTHRESHOLD\tLAST_REPORTED\tLABELS")
 	} else {
-		fmt.Fprintln(w, "NAME\tHOST\tSTATUS\tTHRESHOLD\tLAST_REPORTED\tLABELS")
+		fmt.Fprintln(w, "ID\tNAME\tHOST\tSTATUS\tTHRESHOLD\tLAST_REPORTED\tLABELS")
 	}
 
 	for _, job := range jobs {
@@ -417,12 +425,12 @@ func printJobsTable(jobs []*model.Job) {
 
 		if showApiKeys {
 			maskedApiKey := maskApiKey(job.ApiKey)
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%ds\t%s\t%s\n",
-				job.Name, job.Host, maskedApiKey, job.Status, job.AutomaticFailureThreshold,
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%ds\t%s\t%s\n",
+				job.ID, job.Name, job.Host, maskedApiKey, job.Status, job.AutomaticFailureThreshold,
 				lastReported, labelsStr)
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%ds\t%s\t%s\n",
-				job.Name, job.Host, job.Status, job.AutomaticFailureThreshold,
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%ds\t%s\t%s\n",
+				job.ID, job.Name, job.Host, job.Status, job.AutomaticFailureThreshold,
 				lastReported, labelsStr)
 		}
 	}
@@ -433,6 +441,7 @@ func printJobsTable(jobs []*model.Job) {
 // printJobDetails prints detailed job information
 func printJobDetails(job *model.Job) {
 	fmt.Printf("Job Details:\n")
+	fmt.Printf("  ID: %d\n", job.ID)
 	fmt.Printf("  Name: %s\n", job.Name)
 	fmt.Printf("  Host: %s\n", job.Host)
 	fmt.Printf("  API Key: %s\n", job.ApiKey)
@@ -471,4 +480,22 @@ func maskApiKey(apiKey string) string {
 		return "***"
 	}
 	return apiKey[:6] + "..." + apiKey[len(apiKey)-4:]
+}
+
+// parseJobID parses a job ID from a string argument
+func parseJobID(idStr string) (int, error) {
+	if idStr == "" {
+		return 0, fmt.Errorf("job ID cannot be empty")
+	}
+
+	jobID := 0
+	if _, err := fmt.Sscanf(idStr, "%d", &jobID); err != nil {
+		return 0, fmt.Errorf("job ID must be a number: %s", idStr)
+	}
+
+	if jobID <= 0 {
+		return 0, fmt.Errorf("job ID must be a positive number: %d", jobID)
+	}
+
+	return jobID, nil
 }

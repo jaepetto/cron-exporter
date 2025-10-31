@@ -180,27 +180,30 @@ func (s *Server) handleJob(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleJobByID handles operations on specific jobs
+// handleJobByID handles operations on specific jobs using job ID
 func (s *Server) handleJobByID(w http.ResponseWriter, r *http.Request) {
-	// Extract job name and host from path
+	// Extract job ID from path
 	path := strings.TrimPrefix(r.URL.Path, "/api/job/")
-	parts := strings.Split(path, "/")
 
-	if len(parts) < 2 {
-		s.writeErrorResponse(w, http.StatusBadRequest, "invalid job path format (expected /api/job/{name}/{host})")
+	if path == "" {
+		s.writeErrorResponse(w, http.StatusBadRequest, "invalid job path format (expected /api/job/{id})")
 		return
 	}
 
-	jobName := parts[0]
-	jobHost := parts[1]
+	// Parse job ID
+	jobID := 0
+	if _, err := fmt.Sscanf(path, "%d", &jobID); err != nil {
+		s.writeErrorResponse(w, http.StatusBadRequest, "invalid job ID format (must be a number)")
+		return
+	}
 
 	switch r.Method {
 	case http.MethodGet:
-		s.handleGetJob(w, r, jobName, jobHost)
+		s.handleGetJobByID(w, r, jobID)
 	case http.MethodPut:
-		s.handleUpdateJob(w, r, jobName, jobHost)
+		s.handleUpdateJobByID(w, r, jobID)
 	case http.MethodDelete:
-		s.handleDeleteJob(w, r, jobName, jobHost)
+		s.handleDeleteJobByID(w, r, jobID)
 	default:
 		s.writeErrorResponse(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -282,7 +285,22 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	s.writeJSONResponse(w, http.StatusOK, jobs)
 }
 
-// handleGetJob gets a specific job
+// handleGetJobByID retrieves a specific job by ID
+func (s *Server) handleGetJobByID(w http.ResponseWriter, r *http.Request, jobID int) {
+	job, err := s.jobStore.GetJobByID(jobID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			s.writeErrorResponse(w, http.StatusNotFound, "job not found")
+			return
+		}
+		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to get job: %v", err))
+		return
+	}
+
+	s.writeJSONResponse(w, http.StatusOK, job)
+}
+
+// handleGetJob retrieves a specific job (kept for backward compatibility)
 func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request, jobName, jobHost string) {
 	job, err := s.jobStore.GetJob(jobName, jobHost)
 	if err != nil {
@@ -297,7 +315,60 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request, jobName, j
 	s.writeJSONResponse(w, http.StatusOK, job)
 }
 
-// handleUpdateJob updates a job
+// handleUpdateJobByID updates a job by ID
+func (s *Server) handleUpdateJobByID(w http.ResponseWriter, r *http.Request, jobID int) {
+	// Only admin can update jobs
+	if r.Header.Get("X-Auth-Level") != "admin" {
+		s.writeErrorResponse(w, http.StatusForbidden, "admin access required")
+		return
+	}
+
+	// Get existing job
+	existingJob, err := s.jobStore.GetJobByID(jobID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			s.writeErrorResponse(w, http.StatusNotFound, "job not found")
+			return
+		}
+		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to get job: %v", err))
+		return
+	}
+
+	var updateData model.Job
+	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
+		s.writeErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
+		return
+	}
+
+	// Update only provided fields
+	if updateData.Name != "" {
+		existingJob.Name = updateData.Name
+	}
+	if updateData.Host != "" {
+		existingJob.Host = updateData.Host
+	}
+	if updateData.ApiKey != "" {
+		existingJob.ApiKey = updateData.ApiKey
+	}
+	if updateData.AutomaticFailureThreshold > 0 {
+		existingJob.AutomaticFailureThreshold = updateData.AutomaticFailureThreshold
+	}
+	if updateData.Labels != nil {
+		existingJob.Labels = updateData.Labels
+	}
+	if updateData.Status != "" {
+		existingJob.Status = updateData.Status
+	}
+
+	if err := s.jobStore.UpdateJobByID(existingJob); err != nil {
+		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to update job: %v", err))
+		return
+	}
+
+	s.writeJSONResponse(w, http.StatusOK, existingJob)
+}
+
+// handleUpdateJob updates a job (kept for backward compatibility)
 func (s *Server) handleUpdateJob(w http.ResponseWriter, r *http.Request, jobName, jobHost string) {
 	// Only admin can update jobs
 	if r.Header.Get("X-Auth-Level") != "admin" {
@@ -344,7 +415,27 @@ func (s *Server) handleUpdateJob(w http.ResponseWriter, r *http.Request, jobName
 	s.writeJSONResponse(w, http.StatusOK, existingJob)
 }
 
-// handleDeleteJob deletes a job
+// handleDeleteJobByID deletes a job by ID
+func (s *Server) handleDeleteJobByID(w http.ResponseWriter, r *http.Request, jobID int) {
+	// Only admin can delete jobs
+	if r.Header.Get("X-Auth-Level") != "admin" {
+		s.writeErrorResponse(w, http.StatusForbidden, "admin access required")
+		return
+	}
+
+	if err := s.jobStore.DeleteJobByID(jobID); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			s.writeErrorResponse(w, http.StatusNotFound, "job not found")
+			return
+		}
+		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete job: %v", err))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleDeleteJob deletes a job (kept for backward compatibility)
 func (s *Server) handleDeleteJob(w http.ResponseWriter, r *http.Request, jobName, jobHost string) {
 	// Only admin can delete jobs
 	if r.Header.Get("X-Auth-Level") != "admin" {

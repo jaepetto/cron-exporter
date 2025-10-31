@@ -17,8 +17,9 @@ This is a **greenfield project in implementation phase**. Complete specification
 **Job Data Model (Critical):**
 ```go
 type Job struct {
-    Name string                    // Primary key with host
-    Host string                    // Primary key with name
+    ID int                         // Auto-incrementing primary key
+    Name string                    // Job name (unique with host)
+    Host string                    // Host name (unique with name)
     AutomaticFailureThreshold int  // Seconds since last result
     Labels map[string]string       // Arbitrary user labels
     Status string                  // "active", "maintenance", "paused"

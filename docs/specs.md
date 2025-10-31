@@ -58,6 +58,7 @@ A Go-based API and web server to centralize cron job results and export their st
 
 ```json
 {
+  "id": 42,
   "job_name": "db_import",
   "host": "backup3",
   "api_key": "cm_abcd1234567890abcdef123456789abcdef123456789abcd",
@@ -165,22 +166,23 @@ cronmetrics serve --config /etc/cronmetrics/config.yaml
 
 # Job management with API key generation
 cronmetrics job add --name backup --host db1 --threshold 600 --label env=prod
-# Output: Job 'backup@db1' created successfully
+# Output: Job ID 1 ('backup@db1') created successfully
 #         API Key: cm_abc123456789abcdef123456789abcdef123456789abcd
 #         NOTE: Save this API key for your cron jobs to submit results.
-#         You can retrieve it later using: cronmetrics job show --name backup --host db1
+#         You can retrieve it later using: cronmetrics job show 1
 
 # Job management with custom API key
 cronmetrics job add --name backup2 --host db1 --api-key cm_custom-key --threshold 600
 
-# Update job settings
-cronmetrics job update --name backup --maintenance true
-cronmetrics job update --name backup --api-key cm_new-rotated-key
+# Update job settings (using job ID)
+cronmetrics job update 1 --maintenance
+cronmetrics job update 1 --api-key cm_new-rotated-key
+cronmetrics job update 2 --name backup2-renamed --host db2  # Can update name/host via ID
 
 # List jobs with API key visibility
 cronmetrics job list --label env=prod
 cronmetrics job list --show-api-keys  # Shows masked keys for security
-cronmetrics job show --name backup --host db1  # Shows full API key
+cronmetrics job show 1  # Shows full API key and job details
 ```
 
 ### Logging Conventions
