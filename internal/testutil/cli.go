@@ -74,7 +74,7 @@ func (c *CLITest) WithEnv(key, value string) *CLITest {
 
 // CreateTestConfig creates a test configuration file
 func (c *CLITest) CreateTestConfig(config string) {
-	err := os.WriteFile(c.ConfigFile, []byte(config), 0644)
+	err := os.WriteFile(c.ConfigFile, []byte(config), 0600)
 	require.NoError(c.t, err, "Failed to create test config file")
 }
 
@@ -257,8 +257,14 @@ type BackgroundProcess struct {
 // Stop stops the background process
 func (bp *BackgroundProcess) Stop() {
 	if bp.Process != nil {
-		bp.Process.Kill()
-		bp.Cmd.Wait() // Wait for the process to exit
+		if err := bp.Process.Kill(); err != nil {
+			// non-fatal: record the error so it isn't ignored
+			fmt.Fprintf(os.Stderr, "failed to kill process (pid=%d): %v\n", bp.Process.Pid, err)
+		}
+		if err := bp.Cmd.Wait(); err != nil {
+			// Wait may return non-nil when process already exited; log it
+			fmt.Fprintf(os.Stderr, "process wait returned error (pid=%d): %v\n", bp.Process.Pid, err)
+		}
 	}
 }
 
