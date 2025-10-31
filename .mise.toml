@@ -39,12 +39,24 @@ run = "./bin/cronmetrics serve --dev"
 description = "Start development server"
 
 [tasks.clean]
-run = "rm -rf bin/ dist/ coverage*.out coverage*.html"
-description = "Clean build artifacts and coverage reports"
+run = "rm -rf bin/ dist/ coverage*.out coverage*.html gosec-report.*"
+description = "Clean build artifacts, coverage reports, and security reports"
 
 [tasks.lint]
 run = "go vet ./... && go fmt ./..."
 description = "Run linter and formatter"
+
+[tasks.security]
+run = "gosec ./..."
+description = "Run gosec security scanner"
+
+[tasks.security-install]
+run = "go install github.com/securego/gosec/v2/cmd/gosec@latest"
+description = "Install gosec security scanner"
+
+[tasks.security-report]
+run = "gosec -fmt json -out gosec-report.json ./... && gosec -fmt junit-xml -out gosec-report.xml ./..."
+description = "Run gosec with detailed reports (JSON and XML)"
 
 [tasks.build-all]
 run = '''
@@ -181,5 +193,9 @@ ls -la dist/
 description = "Build release binaries with version info and create compressed archives"
 
 [tasks.ci]
-run = "mise run lint && mise run test-all && mise run build"
-description = "Run CI pipeline: lint, test, build"
+run = "mise run lint && mise run security && mise run test-all && mise run build"
+description = "Run CI pipeline: lint, security scan, test, build"
+
+[tasks.ci-full]
+run = "mise run lint && mise run security && mise run test-all && mise run build-all"
+description = "Run full CI pipeline including multi-platform builds"

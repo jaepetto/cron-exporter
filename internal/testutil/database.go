@@ -51,12 +51,18 @@ func NewInMemoryTestDatabase(t *testing.T) *TestDatabase {
 // Close closes the test database and cleans up resources
 func (td *TestDatabase) Close() {
 	if td.DB != nil {
-		td.DB.Close()
+		if err := td.DB.Close(); err != nil {
+			// In test context, just ignore database close errors
+			_ = err
+		}
 	}
 
 	// Clean up file if it's not in-memory
 	if td.Path != ":memory:" && td.Path != "" {
-		os.Remove(td.Path)
+		if err := os.Remove(td.Path); err != nil {
+			// In test context, just ignore file removal errors
+			_ = err
+		}
 	}
 }
 

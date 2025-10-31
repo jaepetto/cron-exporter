@@ -31,8 +31,11 @@ Runs on every push to `main` branch and pull requests. Includes:
 - Uploads build artifacts with 30-day retention
 
 ### Security Job
-- Runs Gosec security scanner
-- Executes govulncheck for vulnerability detection
+- Runs Gosec security scanner to detect common security issues
+- Executes govulncheck for vulnerability detection in dependencies
+- Scans for issues like command injection (G204), file inclusion (G304), improper permissions (G302), and unhandled errors (G104)
+- **Zero tolerance policy**: Any security issues cause the build to fail
+- Security scan results are uploaded to GitHub Security tab for review
 
 ## Release Pipeline (`release.yml`)
 
@@ -155,6 +158,16 @@ mise run build-all   # Multi-platform builds
 - Test container locally: `docker build -t test .`
 - Check base image vulnerabilities
 - Verify multi-arch support
+
+### Security Scan Issues
+- Run locally: `mise run security`
+- Install gosec: `mise run security-install`
+- Generate detailed reports: `mise run security-report`
+- Common fixes:
+  - G204: Validate command arguments before `exec.Command()`
+  - G304: Validate file paths, prevent directory traversal
+  - G302: Use restrictive file permissions (0600/0644)
+  - G104: Handle all error returns appropriately
 
 ### Release Issues
 - Ensure proper semantic versioning (v1.0.0, not 1.0.0)

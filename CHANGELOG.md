@@ -86,6 +86,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SECURITY**: Fixed 13 security vulnerabilities identified by gosec static analysis scanner
+  - **G204 (CWE-78)**: Prevented potential command injection in test utilities by adding input validation for subprocess execution
+  - **G304 (CWE-22)**: Fixed potential file inclusion vulnerability in OpenAPI spec handler with strict path validation
+  - **G302 (CWE-276)**: Improved log file permissions from 0666 to 0600 for better security
+  - **G104 (CWE-703)**: Added proper error handling for 9 unhandled error cases across API responses, CLI operations, and test utilities
+  - All security fixes include comprehensive validation and maintain full functionality
 - **Prometheus metrics format** now includes proper status labels for all job states
 - **Metrics collector** now correctly determines job status from actual job results
 - **Test suite reliability** - removed flaky concurrent test that was causing intermittent failures

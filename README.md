@@ -518,16 +518,21 @@ mise tasks
 | `test-integration` | Run integration tests |
 | `test-e2e` | Run end-to-end tests |
 | `lint` | Run linter and formatter |
+| `security` | Run gosec security scanner |
+| `security-install` | Install gosec security scanner |
 | `clean` | Clean build artifacts and coverage reports |
-| `ci` | Run full CI pipeline |
+| `ci` | Run full CI pipeline (includes security scan) |
+| `ci-full` | Run CI pipeline with multi-platform builds |
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/new-feature`
 3. Make your changes and add tests
-4. Ensure all tests pass: `mise run test`
+4. Ensure all tests and security scans pass: `mise run ci`
 5. Submit a pull request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines, including security requirements and coding standards.
 
 ## License
 

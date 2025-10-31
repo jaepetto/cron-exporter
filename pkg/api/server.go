@@ -545,7 +545,9 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(metrics))
+	if _, err := w.Write([]byte(metrics)); err != nil {
+		logrus.WithError(err).Error("Failed to write metrics response")
+	}
 }
 
 // handleHealth handles health check requests
@@ -586,7 +588,26 @@ func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	for _, path := range possiblePaths {
-		content, err = os.ReadFile(path)
+		// Validate path to prevent directory traversal attacks
+		cleanPath := filepath.Clean(path)
+
+		// Must end with openapi.yaml to prevent reading arbitrary files
+		if !strings.HasSuffix(cleanPath, "openapi.yaml") {
+			continue
+		}
+
+		// Convert to absolute path and validate it ends with docs/openapi.yaml
+		absPath, pathErr := filepath.Abs(cleanPath)
+		if pathErr != nil {
+			continue
+		}
+
+		// Ensure the absolute path contains the expected docs/openapi.yaml structure
+		if !strings.HasSuffix(absPath, "/docs/openapi.yaml") && !strings.HasSuffix(absPath, "\\docs\\openapi.yaml") {
+			continue
+		}
+
+		content, err = os.ReadFile(cleanPath) // #nosec G304 - path validated above
 		if err == nil {
 			break
 		}
@@ -601,7 +622,9 @@ func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/yaml")
 	w.Header().Set("Cache-Control", "public, max-age=3600") // Cache for 1 hour
 	w.WriteHeader(http.StatusOK)
-	w.Write(content)
+	if _, err := w.Write(content); err != nil {
+		logrus.WithError(err).Error("Failed to write OpenAPI spec response")
+	}
 }
 
 // isValidAdminAPIKey checks if the provided token is a valid admin API key

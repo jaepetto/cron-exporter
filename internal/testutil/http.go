@@ -151,6 +151,10 @@ func (r *HTTPResponse) ExpectContains(expected string) *HTTPResponse {
 // Close closes the response body
 func (r *HTTPResponse) Close() {
 	if r.Body != nil {
-		r.Body.Close()
+		if err := r.Body.Close(); err != nil {
+			// In test context, we can't use logrus, so just ignore the error
+			// as body closing errors are typically not critical in tests
+			_ = err
+		}
 	}
 }

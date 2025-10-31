@@ -79,7 +79,7 @@ mise run test-all  # ALL tests must still pass - 100% required
 
 3. **Before committing, run full validation:**
    ```bash
-   mise run ci  # Runs: lint + test-all + build
+   mise run ci  # Runs: lint + security + test-all + build
    ```
 
 4. **Commit and push:**
@@ -130,8 +130,12 @@ This project uses a comprehensive CI/CD pipeline that runs automatically:
 | `mise run build-all` | Cross-platform builds | Testing portability |
 | `mise run dev` | Development server | Manual testing |
 | `mise run lint` | Code formatting/linting | Before commits |
+| `mise run security` | Security vulnerability scan | **Required before commits** |
+| `mise run security-install` | Install gosec scanner | First time setup |
+| `mise run security-report` | Detailed security reports | Investigation/CI |
 | `mise run clean` | Clean build artifacts | When needed |
-| `mise run ci` | Full CI pipeline | **Required before PRs** |
+| `mise run ci` | Full CI pipeline (includes security) | **Required before PRs** |
+| `mise run ci-full` | CI + multi-platform builds | Release preparation |
 
 ### Docker Development Workflow
 
@@ -183,10 +187,38 @@ docker run -e CRONMETRICS_LOG_LEVEL=debug cronmetrics-dev
 ### Code Quality Requirements
 
 1. **100% Test Coverage**: All new code must have comprehensive tests
-2. **Documentation**: Update all relevant `.md` files with changes
-3. **Error Handling**: Proper error responses with structured logging
-4. **Security**: Validate all inputs, use proper authentication
-5. **Performance**: Consider database query efficiency and memory usage
+2. **Security Scanning**: All code must pass gosec security analysis with zero issues
+3. **Documentation**: Update all relevant `.md` files with changes
+4. **Error Handling**: Proper error responses with structured logging
+5. **Input Validation**: Validate all inputs, use proper authentication
+6. **Performance**: Consider database query efficiency and memory usage
+
+### Security Requirements
+
+**MANDATORY**: All code must pass security scanning before submission.
+
+```bash
+# Install gosec on first use
+mise run security-install
+
+# Run security scan (must show 0 issues)
+mise run security
+
+# Generate detailed reports for investigation
+mise run security-report
+```
+
+**Common security issues to avoid:**
+- **G204**: Command injection - validate all arguments passed to `exec.Command()`
+- **G304**: File inclusion - validate file paths and prevent directory traversal
+- **G302**: File permissions - use restrictive permissions (0600/0644) for sensitive files
+- **G104**: Unhandled errors - always handle error returns appropriately
+
+All security fixes must:
+- Include proper input validation
+- Use `#nosec` comments only when security has been verified
+- Maintain existing functionality while improving security
+- Include tests that verify both security and functionality
 
 ### Testing Requirements
 

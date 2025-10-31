@@ -85,7 +85,7 @@ func initLogging() {
 
 	// Set log output
 	if cfg.Logging.Output != "stdout" && cfg.Logging.Output != "stderr" {
-		file, err := os.OpenFile(cfg.Logging.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		file, err := os.OpenFile(cfg.Logging.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600) // More restrictive permissions
 		if err == nil {
 			logrus.SetOutput(file)
 		}

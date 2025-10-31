@@ -62,8 +62,12 @@ func init() {
 	jobAddCmd.Flags().StringSliceVarP(&jobLabels, "label", "l", []string{}, "labels in key=value format")
 	jobAddCmd.Flags().StringVarP(&jobStatus, "status", "s", "active", "job status (active, maintenance, paused)")
 
-	jobAddCmd.MarkFlagRequired("name")
-	jobAddCmd.MarkFlagRequired("host")
+	if err := jobAddCmd.MarkFlagRequired("name"); err != nil {
+		panic(fmt.Sprintf("Failed to mark name flag as required: %v", err))
+	}
+	if err := jobAddCmd.MarkFlagRequired("host"); err != nil {
+		panic(fmt.Sprintf("Failed to mark host flag as required: %v", err))
+	}
 }
 
 func runJobAdd(cmd *cobra.Command) error {
@@ -440,7 +444,9 @@ func printJobsTable(jobs []*model.Job) {
 		}
 	}
 
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to flush table output: %v\n", err)
+	}
 }
 
 // printJobDetails prints detailed job information

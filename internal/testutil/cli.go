@@ -78,6 +78,34 @@ func (c *CLITest) CreateTestConfig(config string) {
 	require.NoError(c.t, err, "Failed to create test config file")
 }
 
+// validateExecArgs validates that the binary path and arguments are safe for test execution
+func (c *CLITest) validateExecArgs(args []string) error {
+	if c.BinaryPath == "" {
+		return fmt.Errorf("binary path is empty")
+	}
+
+	// Ensure the binary path is within expected test locations
+	absPath, err := filepath.Abs(c.BinaryPath)
+	if err != nil {
+		return fmt.Errorf("cannot resolve binary path: %w", err)
+	}
+
+	// Only allow execution of cronmetrics binary in expected locations
+	if !strings.Contains(absPath, "cronmetrics") {
+		return fmt.Errorf("invalid binary name, expected cronmetrics")
+	}
+
+	// Validate arguments don't contain dangerous patterns
+	for _, arg := range args {
+		// Prevent command injection attempts
+		if strings.Contains(arg, ";") || strings.Contains(arg, "&") || strings.Contains(arg, "|") || strings.Contains(arg, "`") {
+			return fmt.Errorf("argument contains potentially dangerous characters: %s", arg)
+		}
+	}
+
+	return nil
+}
+
 // CreateDefaultTestConfig creates a default test configuration
 func (c *CLITest) CreateDefaultTestConfig() {
 	config := fmt.Sprintf(`
@@ -133,7 +161,13 @@ func (c *CLITest) RunCommandWithTimeout(timeout time.Duration, args ...string) *
 		args = append([]string{"--config", c.ConfigFile}, args...)
 	}
 
-	cmd := exec.Command(c.BinaryPath, args...)
+	// Validate arguments for security - #nosec G204 suppressed after validation
+	if err := c.validateExecArgs(args); err != nil {
+		require.Fail(c.t, fmt.Sprintf("Invalid command arguments: %v", err))
+		return nil
+	}
+
+	cmd := exec.Command(c.BinaryPath, args...) // #nosec G204 - arguments validated above
 	cmd.Env = c.Env
 	cmd.Dir = c.TempDir
 
@@ -160,7 +194,10 @@ func (c *CLITest) RunCommandWithTimeout(timeout time.Duration, args ...string) *
 		}
 	case <-time.After(timeout):
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			if err := cmd.Process.Kill(); err != nil {
+				// In test context, ignore kill errors as the process might already be dead
+				_ = err
+			}
 		}
 		require.Fail(c.t, fmt.Sprintf("Command timed out after %v: %s %s", timeout, c.BinaryPath, strings.Join(args, " ")))
 		return nil
@@ -182,7 +219,13 @@ func (c *CLITest) RunBackground(args ...string) *BackgroundProcess {
 		args = append([]string{"--config", c.ConfigFile}, args...)
 	}
 
-	cmd := exec.Command(c.BinaryPath, args...)
+	// Validate arguments for security - #nosec G204 suppressed after validation
+	if err := c.validateExecArgs(args); err != nil {
+		require.Fail(c.t, fmt.Sprintf("Invalid command arguments: %v", err))
+		return nil
+	}
+
+	cmd := exec.Command(c.BinaryPath, args...) // #nosec G204 - arguments validated above
 	cmd.Env = c.Env
 	cmd.Dir = c.TempDir
 

@@ -1,2 +1,11 @@
 bin/cronmetrics
 dist/
+
+# Security reports
+gosec-report.*
+
+# Test artifacts
+coverage.out
+coverage.html
+coverage-*.out
+coverage-*.html
