@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+docs/
+
+# Build artifacts
+bin/
+dist/
+*.out
+*.html
+
+# Test files
+test/
+*_test.go
+
+# Development files
+.mise.toml
+.tool-versions
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Config files that shouldn't be in image
+prometheus.yml
+config/

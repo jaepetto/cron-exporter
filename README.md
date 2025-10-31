@@ -1,5 +1,10 @@
 # Cron Metrics Collector & Exporter
 
+[![CI/CD Pipeline](https://github.com/jaepetto/cron-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/jaepetto/cron-exporter/actions/workflows/ci.yml)
+[![Release](https://github.com/jaepetto/cron-exporter/actions/workflows/release.yml/badge.svg)](https://github.com/jaepetto/cron-exporter/actions/workflows/release.yml)
+[![Docker Build](https://github.com/jaepetto/cron-exporter/actions/workflows/docker.yml/badge.svg)](https://github.com/jaepetto/cron-exporter/actions/workflows/docker.yml)
+[![codecov](https://codecov.io/gh/jaepetto/cron-exporter/branch/main/graph/badge.svg)](https://codecov.io/gh/jaepetto/cron-exporter)
+
 A Go-based API and web server to centralize cron job results and export their statuses as Prometheus-compatible metrics.
 
 ## Features
@@ -72,6 +77,63 @@ The server will start on `http://localhost:8080` with:
 ```bash
 ./bin/cronmetrics serve --config /etc/cronmetrics/config.yaml
 ```
+
+### Docker Deployment
+
+The application is available as a multi-architecture container image at `ghcr.io/jaepetto/cron-exporter`.
+
+#### Quick Start with Docker
+
+```bash
+# Run standalone container
+docker run -d \
+  --name cronmetrics \
+  -p 8080:8080 \
+  -p 9090:9090 \
+  -v cronmetrics_data:/data \
+  ghcr.io/jaepetto/cron-exporter:main
+```
+
+#### Production Stack with Docker Compose
+
+```bash
+# Clone the repository for docker-compose.yml
+git clone https://github.com/jaepetto/cron-exporter
+cd cron-exporter
+
+# Start the full monitoring stack
+docker-compose up -d
+
+# Access services:
+# - cronmetrics API: http://localhost:8080
+# - Prometheus: http://localhost:9091
+# - Grafana: http://localhost:3000 (admin/admin)
+```
+
+The Docker Compose setup includes:
+- **cronmetrics**: Main application with persistent data storage
+- **Prometheus**: Metrics collection and alerting
+- **Grafana**: Dashboards and visualization (optional)
+
+#### Container Configuration
+
+Set environment variables for container configuration:
+
+```bash
+docker run -d \
+  -e CRONMETRICS_LOG_LEVEL=info \
+  -e CRONMETRICS_DATABASE_PATH=/data/cronmetrics.db \
+  -e CRONMETRICS_SERVER_HOST=0.0.0.0 \
+  -e CRONMETRICS_SERVER_PORT=8080 \
+  -e CRONMETRICS_METRICS_PORT=9090 \
+  ghcr.io/jaepetto/cron-exporter:main
+```
+
+#### Available Tags
+
+- `main`: Latest development build from main branch
+- `v1.x.x`: Specific release versions
+- `sha-<commit>`: Specific commit builds
 
 ## Usage
 
@@ -388,6 +450,32 @@ mise run build-release
 
 - Linux: amd64, arm64, 386
 - macOS: amd64 (Intel), arm64 (Apple Silicon)
+- Windows: amd64, 386
+- FreeBSD, OpenBSD, NetBSD: amd64
+
+## CI/CD and Automation
+
+This project includes comprehensive automation via GitHub Actions:
+
+### Automated Testing
+- **Every Push/PR**: Full test suite, security scanning, and multi-platform builds
+- **Coverage Reporting**: Automatic code coverage tracking via Codecov
+- **Security Scanning**: Gosec and govulncheck for vulnerability detection
+
+### Automated Releases
+- **Tag-triggered**: Create releases by pushing version tags (e.g., `v1.0.0`)
+- **Multi-platform Binaries**: Automatic building and publishing of release archives
+- **Container Images**: Multi-architecture Docker images published to GitHub Container Registry
+- **Changelog Generation**: Automatic release notes from git commits
+
+### Container Registry
+- **Development**: `ghcr.io/jaepetto/cron-exporter:main`
+- **Releases**: `ghcr.io/jaepetto/cron-exporter:v1.x.x`
+- **Architectures**: linux/amd64, linux/arm64
+
+### Dependency Management
+- **Automated Updates**: Dependabot creates weekly PRs for Go modules, Actions, and Docker images
+- **Security Monitoring**: Automated vulnerability scanning and alerts
 - Windows: amd64, 386
 - FreeBSD, OpenBSD, NetBSD: amd64
 

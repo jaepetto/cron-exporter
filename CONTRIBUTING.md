@@ -89,6 +89,35 @@ mise run test-all  # ALL tests must still pass - 100% required
    git push origin feature/your-feature-name
    ```
 
+5. **Create Pull Request:**
+   - GitHub Actions will automatically run the full CI pipeline
+   - All tests must pass before the PR can be merged
+   - Security scans, linting, and multi-platform builds are automated
+   - Code coverage reports will be generated and checked
+
+### GitHub Actions CI/CD Pipeline
+
+This project uses a comprehensive CI/CD pipeline that runs automatically:
+
+#### On Pull Requests and Pushes to Main:
+- **Testing**: Full test suite (unit, integration, e2e)
+- **Security**: Gosec security scanning and govulncheck
+- **Linting**: Code formatting and style checks
+- **Building**: Multi-platform binary builds with artifact storage
+- **Coverage**: Code coverage reporting via Codecov
+- **Docker**: Container image building and security scanning
+
+#### On Version Tags (Releases):
+- **Release Builds**: Creates binaries for all supported platforms
+- **GitHub Releases**: Automatic release creation with changelog
+- **Container Publishing**: Multi-architecture images to GitHub Container Registry
+- **Documentation**: Automatic updates to release documentation
+
+#### Weekly Automated Maintenance:
+- **Dependencies**: Dependabot creates PRs for Go module updates
+- **Security**: Automated security vulnerability scanning
+- **Infrastructure**: GitHub Actions and Docker base image updates
+
 ### Available Development Commands
 
 | Command | Description | When to Use |
@@ -103,6 +132,43 @@ mise run test-all  # ALL tests must still pass - 100% required
 | `mise run lint` | Code formatting/linting | Before commits |
 | `mise run clean` | Clean build artifacts | When needed |
 | `mise run ci` | Full CI pipeline | **Required before PRs** |
+
+### Docker Development Workflow
+
+For contributors working with containers or testing the full stack:
+
+#### Local Development with Docker
+```bash
+# Build and test container locally
+docker build -t cronmetrics-dev .
+
+# Run with full monitoring stack
+docker-compose up -d
+
+# Check container health
+docker-compose ps
+docker-compose logs cronmetrics
+
+# Clean up
+docker-compose down -v
+```
+
+#### Testing Container Images
+```bash
+# Test multi-architecture builds (requires buildx)
+docker buildx build --platform linux/amd64,linux/arm64 -t test .
+
+# Security scanning locally (if trivy is installed)
+trivy image cronmetrics-dev
+
+# Test different configurations
+docker run -e CRONMETRICS_LOG_LEVEL=debug cronmetrics-dev
+```
+
+#### Container Registry Access
+- **Development**: Images are automatically built on every push
+- **Releases**: Tagged images are published to `ghcr.io/jaepetto/cron-exporter`
+- **Pull Requests**: Container builds are tested but not published
 
 ## Code Standards
 

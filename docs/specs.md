@@ -47,7 +47,7 @@ A Go-based API and web server to centralize cron job results and export their st
 
 ## Non-Functional Requirements
 
-- Containerized build (Docker), static Linux binary, CI/CD pipeline with mise
+- Containerized build (Docker), static Linux binary, comprehensive GitHub Actions CI/CD pipeline
 - <300 ms /metrics for up to 10,000 jobs
 - Pure Go codebase, Viper config (YAML + env overrides), structured logging (Zap or Logrus)
 - Documentation always up-to-date as source of project truth
@@ -268,7 +268,38 @@ cronmetrics job show 1  # Shows full API key and job details
 - ✅ Complete test suite with 100% pass rate providing confidence in system reliability
 - ✅ MVP release includes end-to-end example, CI pipeline, and up-to-date docs
 
+### CI/CD and Automation ✅
+
+**GitHub Actions Pipeline:**
+- **Automated Testing**: Full test suite on every push and pull request
+- **Security Scanning**: Gosec, govulncheck, and Trivy container scanning
+- **Multi-platform Builds**: Automatic binary builds for Linux, macOS, Windows
+- **Container Publishing**: Multi-architecture Docker images to GitHub Container Registry
+- **Release Automation**: Tag-triggered releases with changelog generation
+- **Dependency Management**: Automated weekly updates via Dependabot
+
+**Container Support:**
+- Multi-stage Docker builds with security best practices
+- Multi-architecture support (linux/amd64, linux/arm64)
+- Docker Compose setup with Prometheus and Grafana
+- Published to `ghcr.io/jaepetto/cron-exporter`
+
+**Quality Assurance:**
+- Code coverage reporting via Codecov
+- Comprehensive linting and formatting checks
+- All builds and tests must pass before merge
+- Automated security vulnerability scanning
+
 ### Changelog
+
+- v0.4, 2025-10-31: **Complete CI/CD Pipeline and Containerization**
+  - GitHub Actions workflows for automated testing, building, and releasing
+  - Multi-platform Docker images with security scanning
+  - Automated release pipeline with tag-triggered builds
+  - Docker Compose setup with monitoring stack (Prometheus, Grafana)
+  - Dependabot configuration for automated dependency updates
+  - Code coverage integration with Codecov
+  - Comprehensive documentation updates for CI/CD workflow
 
 - v0.3, 2025-10-31: **Production-Ready Release with Full Test Coverage**
   - Enhanced Prometheus metrics with proper status labels (`status="success"`, `status="failure"`, `status="maintenance"`)

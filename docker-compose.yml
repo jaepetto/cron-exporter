@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  cronmetrics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"  # API server
+      - "9090:9090"  # Metrics endpoint
+    volumes:
+      - cronmetrics_data:/data
+      - ./config:/etc/cronmetrics:ro
+    environment:
+      - CRONMETRICS_LOG_LEVEL=info
+      - CRONMETRICS_DATABASE_PATH=/data/cronmetrics.db
+      - CRONMETRICS_SERVER_HOST=0.0.0.0
+      - CRONMETRICS_SERVER_PORT=8080
+      - CRONMETRICS_METRICS_PORT=9090
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/cronmetrics", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Prometheus for scraping metrics
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    depends_on:
+      - cronmetrics
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  cronmetrics_data:
+  prometheus_data:
+  grafana_data:

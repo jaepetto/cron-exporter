@@ -351,31 +351,45 @@ func TestNewWorkflow(t *testing.T) {
 
 ## CI/CD Integration
 
-### GitHub Actions Example
+The project uses a comprehensive GitHub Actions CI/CD pipeline that automatically runs all tests and builds on every push and pull request.
+
+### Current GitHub Actions Workflows
+
+#### 1. Main CI Pipeline (`.github/workflows/ci.yml`)
+- **Triggers**: Push to main branch, pull requests
+- **Jobs**: Test, Build, Security scanning
+- **Testing**: Full test suite (`mise run test-all`)
+- **Security**: Gosec and govulncheck scanning
+- **Artifacts**: Multi-platform binaries with 30-day retention
+- **Coverage**: Automatic upload to Codecov
+
+#### 2. Release Pipeline (`.github/workflows/release.yml`)
+- **Triggers**: Version tags (e.g., `v1.0.0`)
+- **Testing**: Full test suite before release
+- **Building**: Release binaries for all platforms
+- **Publishing**: GitHub releases with compressed archives
+
+#### 3. Docker Pipeline (`.github/workflows/docker.yml`)
+- **Triggers**: Push to main, version tags, pull requests
+- **Building**: Multi-architecture container images
+- **Security**: Trivy vulnerability scanning
+- **Publishing**: GitHub Container Registry
+
+### Test Execution in CI
 
 ```yaml
-name: Tests
-on: [push, pull_request]
+# Actual workflow excerpt
+- name: Run unit tests
+  run: mise run test-unit
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: '1.21'
+- name: Run integration tests
+  run: mise run test-integration
 
-      - name: Install mise
-        run: curl https://mise.run | sh
+- name: Run e2e tests
+  run: mise run test-e2e
 
-      - name: Run CI pipeline
-        run: mise run ci
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.out
+- name: Generate coverage
+  run: mise run test-coverage
 ```
 
 ### Local CI Simulation
