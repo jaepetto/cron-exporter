@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/jaep/cron-exporter/pkg/api"
-	"github.com/jaep/cron-exporter/pkg/config"
-	"github.com/jaep/cron-exporter/pkg/metrics"
+	"github.com/jaepetto/cron-exporter/pkg/api"
+	"github.com/jaepetto/cron-exporter/pkg/config"
+	"github.com/jaepetto/cron-exporter/pkg/metrics"
 	"github.com/stretchr/testify/require"
 )
 

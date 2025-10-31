@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/jaep/cron-exporter/internal/cli"
+	"github.com/jaepetto/cron-exporter/internal/cli"
 	"github.com/sirupsen/logrus"
 )
 

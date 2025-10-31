@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jaep/cron-exporter/pkg/model"
+	"github.com/jaepetto/cron-exporter/pkg/model"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"

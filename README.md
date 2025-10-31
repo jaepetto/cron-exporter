@@ -25,7 +25,7 @@ A Go-based API and web server to centralize cron job results and export their st
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/jaep/cron-exporter
+git clone https://github.com/jaepetto/cron-exporter
 cd cron-exporter
 ```
 

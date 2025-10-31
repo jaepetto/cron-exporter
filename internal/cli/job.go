@@ -8,8 +8,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/jaep/cron-exporter/pkg/model"
-	"github.com/jaep/cron-exporter/pkg/util"
+	"github.com/jaepetto/cron-exporter/pkg/model"
+	"github.com/jaepetto/cron-exporter/pkg/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

@@ -11,10 +11,10 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
-	"github.com/jaep/cron-exporter/pkg/config"
-	"github.com/jaep/cron-exporter/pkg/metrics"
-	"github.com/jaep/cron-exporter/pkg/model"
-	"github.com/jaep/cron-exporter/pkg/util"
+	"github.com/jaepetto/cron-exporter/pkg/config"
+	"github.com/jaepetto/cron-exporter/pkg/metrics"
+	"github.com/jaepetto/cron-exporter/pkg/model"
+	"github.com/jaepetto/cron-exporter/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 

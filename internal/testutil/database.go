@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/jaep/cron-exporter/pkg/model"
+	"github.com/jaepetto/cron-exporter/pkg/model"
 	"github.com/stretchr/testify/require"
 )
 

@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jaep/cron-exporter/pkg/api"
-	"github.com/jaep/cron-exporter/pkg/metrics"
-	"github.com/jaep/cron-exporter/pkg/model"
+	"github.com/jaepetto/cron-exporter/pkg/api"
+	"github.com/jaepetto/cron-exporter/pkg/metrics"
+	"github.com/jaepetto/cron-exporter/pkg/model"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

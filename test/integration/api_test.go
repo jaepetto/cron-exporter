@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jaep/cron-exporter/internal/testutil"
-	"github.com/jaep/cron-exporter/pkg/model"
+	"github.com/jaepetto/cron-exporter/internal/testutil"
+	"github.com/jaepetto/cron-exporter/pkg/model"
 	"github.com/stretchr/testify/assert"
 )
 
