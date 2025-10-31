@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jaep/cron-exporter/pkg/model"
+	"github.com/jaep/cron-exporter/pkg/util"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -46,6 +47,7 @@ var jobAddCmd = &cobra.Command{
 var (
 	jobName      string
 	jobHost      string
+	jobApiKey    string
 	jobThreshold int
 	jobLabels    []string
 	jobStatus    string
@@ -54,6 +56,7 @@ var (
 func init() {
 	jobAddCmd.Flags().StringVarP(&jobName, "name", "n", "", "job name (required)")
 	jobAddCmd.Flags().StringVar(&jobHost, "host", "", "host name (required)")
+	jobAddCmd.Flags().StringVar(&jobApiKey, "api-key", "", "API key for the job (auto-generated if not provided)")
 	jobAddCmd.Flags().IntVarP(&jobThreshold, "threshold", "t", 3600, "automatic failure threshold in seconds")
 	jobAddCmd.Flags().StringSliceVarP(&jobLabels, "label", "l", []string{}, "labels in key=value format")
 	jobAddCmd.Flags().StringVarP(&jobStatus, "status", "s", "active", "job status (active, maintenance, paused)")
@@ -71,6 +74,16 @@ func runJobAdd(cmd *cobra.Command) error {
 	labels, err := parseLabels(jobLabels)
 	if err != nil {
 		return fmt.Errorf("invalid labels: %w", err)
+	}
+
+	// Generate API key if not provided
+	apiKey := jobApiKey
+	if apiKey == "" {
+		generated, err := util.GenerateAPIKey()
+		if err != nil {
+			return fmt.Errorf("failed to generate API key: %w", err)
+		}
+		apiKey = generated
 	}
 
 	// Load configuration and initialize database
@@ -91,6 +104,7 @@ func runJobAdd(cmd *cobra.Command) error {
 	job := &model.Job{
 		Name:                      jobName,
 		Host:                      jobHost,
+		ApiKey:                    apiKey,
 		AutomaticFailureThreshold: jobThreshold,
 		Labels:                    labels,
 		Status:                    jobStatus,
@@ -102,6 +116,13 @@ func runJobAdd(cmd *cobra.Command) error {
 	}
 
 	fmt.Printf("Job '%s@%s' created successfully\n", jobName, jobHost)
+	fmt.Printf("API Key: %s\n", apiKey)
+
+	if jobApiKey == "" {
+		fmt.Println("\nNOTE: Save this API key for your cron jobs to submit results.")
+		fmt.Printf("You can retrieve it later using: cronmetrics job show --name %s --host %s\n", jobName, jobHost)
+	}
+
 	return nil
 }
 
@@ -118,13 +139,15 @@ var jobListCmd = &cobra.Command{
 }
 
 var (
-	listLabels []string
-	outputJSON bool
+	listLabels  []string
+	outputJSON  bool
+	showApiKeys bool
 )
 
 func init() {
 	jobListCmd.Flags().StringSliceVarP(&listLabels, "label", "l", []string{}, "filter by labels in key=value format")
 	jobListCmd.Flags().BoolVarP(&outputJSON, "json", "j", false, "output as JSON")
+	jobListCmd.Flags().BoolVar(&showApiKeys, "show-api-keys", false, "show API keys (masked for security)")
 }
 
 func runJobList(cmd *cobra.Command) error {
@@ -189,6 +212,7 @@ var (
 func init() {
 	jobUpdateCmd.Flags().StringVarP(&jobName, "name", "n", "", "job name (required)")
 	jobUpdateCmd.Flags().StringVar(&jobHost, "host", "", "host name (required)")
+	jobUpdateCmd.Flags().StringVar(&jobApiKey, "api-key", "", "update API key for the job")
 	jobUpdateCmd.Flags().IntVar(&jobThreshold, "threshold", 0, "automatic failure threshold in seconds")
 	jobUpdateCmd.Flags().StringSliceVarP(&updateLabels, "label", "l", []string{}, "labels in key=value format")
 	jobUpdateCmd.Flags().StringVarP(&updateStatus, "status", "s", "", "job status (active, maintenance, paused)")
@@ -224,6 +248,10 @@ func runJobUpdate(cmd *cobra.Command) error {
 	}
 
 	// Update fields if provided
+	if cmd.Flags().Changed("api-key") {
+		job.ApiKey = jobApiKey
+	}
+
 	if cmd.Flags().Changed("threshold") {
 		job.AutomaticFailureThreshold = jobThreshold
 	}
@@ -376,15 +404,27 @@ func parseLabels(labelStings []string) (map[string]string, error) {
 // printJobsTable prints jobs in table format
 func printJobsTable(jobs []*model.Job) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tHOST\tSTATUS\tTHRESHOLD\tLAST_REPORTED\tLABELS")
+
+	if showApiKeys {
+		fmt.Fprintln(w, "NAME\tHOST\tAPI_KEY\tSTATUS\tTHRESHOLD\tLAST_REPORTED\tLABELS")
+	} else {
+		fmt.Fprintln(w, "NAME\tHOST\tSTATUS\tTHRESHOLD\tLAST_REPORTED\tLABELS")
+	}
 
 	for _, job := range jobs {
 		labelsStr := formatLabels(job.Labels)
 		lastReported := job.LastReportedAt.Format("2006-01-02 15:04:05")
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%ds\t%s\t%s\n",
-			job.Name, job.Host, job.Status, job.AutomaticFailureThreshold,
-			lastReported, labelsStr)
+		if showApiKeys {
+			maskedApiKey := maskApiKey(job.ApiKey)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%ds\t%s\t%s\n",
+				job.Name, job.Host, maskedApiKey, job.Status, job.AutomaticFailureThreshold,
+				lastReported, labelsStr)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%ds\t%s\t%s\n",
+				job.Name, job.Host, job.Status, job.AutomaticFailureThreshold,
+				lastReported, labelsStr)
+		}
 	}
 
 	w.Flush()
@@ -395,6 +435,7 @@ func printJobDetails(job *model.Job) {
 	fmt.Printf("Job Details:\n")
 	fmt.Printf("  Name: %s\n", job.Name)
 	fmt.Printf("  Host: %s\n", job.Host)
+	fmt.Printf("  API Key: %s\n", job.ApiKey)
 	fmt.Printf("  Status: %s\n", job.Status)
 	fmt.Printf("  Threshold: %d seconds\n", job.AutomaticFailureThreshold)
 	fmt.Printf("  Last Reported: %s\n", job.LastReportedAt.Format("2006-01-02 15:04:05 MST"))
@@ -422,4 +463,12 @@ func formatLabels(labels map[string]string) string {
 		parts = append(parts, fmt.Sprintf("%s=%s", key, value))
 	}
 	return strings.Join(parts, ",")
+}
+
+// maskApiKey masks an API key for display, showing only the first and last few characters
+func maskApiKey(apiKey string) string {
+	if len(apiKey) <= 10 {
+		return "***"
+	}
+	return apiKey[:6] + "..." + apiKey[len(apiKey)-4:]
 }

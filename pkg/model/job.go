@@ -14,6 +14,7 @@ import (
 type Job struct {
 	Name                      string            `json:"job_name" db:"name"`
 	Host                      string            `json:"host" db:"host"`
+	ApiKey                    string            `json:"api_key,omitempty" db:"api_key"`                               // Per-job API key for authentication
 	AutomaticFailureThreshold int               `json:"automatic_failure_threshold" db:"automatic_failure_threshold"` // Seconds since last result
 	Labels                    map[string]string `json:"labels" db:"labels"`                                           // Arbitrary user labels
 	Status                    string            `json:"status" db:"status"`                                           // "active", "maintenance", "paused"
@@ -55,11 +56,11 @@ func (s *JobStore) CreateJob(job *Job) error {
 	job.UpdatedAt = now
 
 	query := `
-		INSERT INTO jobs (name, host, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO jobs (name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err = s.db.Exec(query, job.Name, job.Host, job.AutomaticFailureThreshold, string(labelsJSON), job.Status, job.LastReportedAt, job.CreatedAt, job.UpdatedAt)
+	_, err = s.db.Exec(query, job.Name, job.Host, job.ApiKey, job.AutomaticFailureThreshold, string(labelsJSON), job.Status, job.LastReportedAt, job.CreatedAt, job.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create job: %w", err)
 	}
@@ -76,7 +77,7 @@ func (s *JobStore) CreateJob(job *Job) error {
 // GetJob retrieves a job by name and host
 func (s *JobStore) GetJob(name, host string) (*Job, error) {
 	query := `
-		SELECT name, host, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+		SELECT name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
 		FROM jobs
 		WHERE name = ? AND host = ?
 	`
@@ -85,13 +86,18 @@ func (s *JobStore) GetJob(name, host string) (*Job, error) {
 
 	job := &Job{}
 	var labelsJSON string
+	var apiKeyNull sql.NullString
 
-	err := row.Scan(&job.Name, &job.Host, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
+	err := row.Scan(&job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job not found: %s@%s", name, host)
 		}
 		return nil, fmt.Errorf("failed to get job: %w", err)
+	}
+
+	if apiKeyNull.Valid {
+		job.ApiKey = apiKeyNull.String
 	}
 
 	if err := json.Unmarshal([]byte(labelsJSON), &job.Labels); err != nil {
@@ -104,7 +110,7 @@ func (s *JobStore) GetJob(name, host string) (*Job, error) {
 // ListJobs retrieves all jobs with optional label filtering
 func (s *JobStore) ListJobs(labelFilters map[string]string) ([]*Job, error) {
 	query := `
-		SELECT name, host, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+		SELECT name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
 		FROM jobs
 		ORDER BY name, host
 	`
@@ -119,10 +125,15 @@ func (s *JobStore) ListJobs(labelFilters map[string]string) ([]*Job, error) {
 	for rows.Next() {
 		job := &Job{}
 		var labelsJSON string
+		var apiKeyNull sql.NullString
 
-		err := rows.Scan(&job.Name, &job.Host, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
+		err := rows.Scan(&job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan job row: %w", err)
+		}
+
+		if apiKeyNull.Valid {
+			job.ApiKey = apiKeyNull.String
 		}
 
 		if err := json.Unmarshal([]byte(labelsJSON), &job.Labels); err != nil {
@@ -164,11 +175,11 @@ func (s *JobStore) UpdateJob(job *Job) error {
 
 	query := `
 		UPDATE jobs
-		SET automatic_failure_threshold = ?, labels = ?, status = ?, last_reported_at = ?, updated_at = ?
+		SET api_key = ?, automatic_failure_threshold = ?, labels = ?, status = ?, last_reported_at = ?, updated_at = ?
 		WHERE name = ? AND host = ?
 	`
 
-	result, err := s.db.Exec(query, job.AutomaticFailureThreshold, string(labelsJSON), job.Status, job.LastReportedAt, job.UpdatedAt, job.Name, job.Host)
+	result, err := s.db.Exec(query, job.ApiKey, job.AutomaticFailureThreshold, string(labelsJSON), job.Status, job.LastReportedAt, job.UpdatedAt, job.Name, job.Host)
 	if err != nil {
 		return fmt.Errorf("failed to update job: %w", err)
 	}
@@ -241,4 +252,41 @@ func (s *JobStore) UpdateJobLastReported(name, host string, timestamp time.Time)
 	}
 
 	return nil
+}
+
+// GetJobByApiKey retrieves a job by its API key
+func (s *JobStore) GetJobByApiKey(apiKey string) (*Job, error) {
+	if apiKey == "" {
+		return nil, fmt.Errorf("API key cannot be empty")
+	}
+
+	query := `
+		SELECT name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+		FROM jobs
+		WHERE api_key = ?
+	`
+
+	row := s.db.QueryRow(query, apiKey)
+
+	job := &Job{}
+	var labelsJSON string
+	var apiKeyNull sql.NullString
+
+	err := row.Scan(&job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("job not found for API key")
+		}
+		return nil, fmt.Errorf("failed to get job by API key: %w", err)
+	}
+
+	if apiKeyNull.Valid {
+		job.ApiKey = apiKeyNull.String
+	}
+
+	if err := json.Unmarshal([]byte(labelsJSON), &job.Labels); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal labels: %w", err)
+	}
+
+	return job, nil
 }

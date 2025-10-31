@@ -10,6 +10,7 @@ import (
 	"github.com/jaep/cron-exporter/pkg/config"
 	"github.com/jaep/cron-exporter/pkg/metrics"
 	"github.com/jaep/cron-exporter/pkg/model"
+	"github.com/jaep/cron-exporter/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,7 +39,7 @@ func (s *Server) Handler() http.Handler {
 	// API routes
 	mux.HandleFunc("/api/job", s.withAuth(s.handleJob))
 	mux.HandleFunc("/api/job/", s.withAuth(s.handleJobByID))
-	mux.HandleFunc("/api/job-result", s.withAuth(s.handleJobResult))
+	mux.HandleFunc("/api/job-result", s.withJobAuth(s.handleJobResult))
 
 	// Metrics endpoint
 	mux.HandleFunc(s.config.Metrics.Path, s.handleMetrics)
@@ -50,7 +51,7 @@ func (s *Server) Handler() http.Handler {
 	return s.withLogging(mux)
 }
 
-// withAuth provides authentication middleware
+// withAuth provides authentication middleware for admin operations
 func (s *Server) withAuth(handler http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Skip auth in development mode
@@ -59,38 +60,77 @@ func (s *Server) withAuth(handler http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Check for API key in Authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			s.writeErrorResponse(w, http.StatusUnauthorized, "missing authorization header")
+		// Get API key from header
+		apiKey := s.extractAPIKey(r)
+		if apiKey == "" {
+			s.writeErrorResponse(w, http.StatusUnauthorized, "missing or invalid API key")
 			return
 		}
 
-		// Extract Bearer token
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == authHeader {
-			s.writeErrorResponse(w, http.StatusUnauthorized, "invalid authorization format")
+		// Check if token is valid admin key
+		if !s.isValidAdminAPIKey(apiKey) {
+			s.writeErrorResponse(w, http.StatusUnauthorized, "admin access required")
 			return
 		}
 
-		// Check if token is valid
-		isAdmin := s.isValidAdminAPIKey(token)
-		isRegular := s.isValidAPIKey(token)
+		// Add auth info to request context
+		r.Header.Set("X-Auth-Level", "admin")
+		handler(w, r)
+	}
+}
 
-		if !isAdmin && !isRegular {
+// withJobAuth provides authentication middleware for job result submissions
+func (s *Server) withJobAuth(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth in development mode
+		if s.config.Database.Path == "/tmp/cronmetrics_dev.db" {
+			handler(w, r)
+			return
+		}
+
+		// Get API key from header
+		apiKey := s.extractAPIKey(r)
+		if apiKey == "" {
+			s.writeErrorResponse(w, http.StatusUnauthorized, "missing or invalid API key")
+			return
+		}
+
+		// Validate API key by looking up the associated job
+		job, err := s.jobStore.GetJobByApiKey(apiKey)
+		if err != nil {
 			s.writeErrorResponse(w, http.StatusUnauthorized, "invalid API key")
 			return
 		}
 
-		// Add auth info to request context for admin-only operations
-		if isAdmin {
-			r.Header.Set("X-Auth-Level", "admin")
-		} else {
-			r.Header.Set("X-Auth-Level", "regular")
-		}
+		// Add job info to request context for validation
+		r.Header.Set("X-Auth-Job-Name", job.Name)
+		r.Header.Set("X-Auth-Job-Host", job.Host)
+		r.Header.Set("X-Auth-Level", "job")
 
 		handler(w, r)
 	}
+}
+
+// extractAPIKey extracts API key from various header formats
+func (s *Server) extractAPIKey(r *http.Request) string {
+	// Try X-API-Key header first (preferred for job submissions)
+	if apiKey := r.Header.Get("X-API-Key"); apiKey != "" {
+		return apiKey
+	}
+
+	// Fall back to Authorization Bearer format (for admin operations)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return ""
+	}
+
+	// Extract Bearer token
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == authHeader {
+		return ""
+	}
+
+	return token
 }
 
 // withLogging provides request logging middleware
@@ -186,6 +226,16 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate API key if not provided
+	if job.ApiKey == "" {
+		apiKey, err := util.GenerateAPIKey()
+		if err != nil {
+			s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to generate API key: %v", err))
+			return
+		}
+		job.ApiKey = apiKey
+	}
+
 	// Set defaults
 	if job.AutomaticFailureThreshold == 0 {
 		job.AutomaticFailureThreshold = 3600
@@ -273,6 +323,9 @@ func (s *Server) handleUpdateJob(w http.ResponseWriter, r *http.Request, jobName
 	}
 
 	// Update only provided fields
+	if updateData.ApiKey != "" {
+		existingJob.ApiKey = updateData.ApiKey
+	}
 	if updateData.AutomaticFailureThreshold > 0 {
 		existingJob.AutomaticFailureThreshold = updateData.AutomaticFailureThreshold
 	}
@@ -336,6 +389,17 @@ func (s *Server) handleJobResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// In non-dev mode, validate that the job result matches the authenticated job
+	if s.config.Database.Path != "/tmp/cronmetrics_dev.db" {
+		authJobName := r.Header.Get("X-Auth-Job-Name")
+		authJobHost := r.Header.Get("X-Auth-Job-Host")
+
+		if result.JobName != authJobName || result.Host != authJobHost {
+			s.writeErrorResponse(w, http.StatusForbidden, "job result does not match authenticated job")
+			return
+		}
+	}
+
 	// Set timestamp if not provided
 	if result.Timestamp.IsZero() {
 		result.Timestamp = time.Now().UTC()
@@ -394,16 +458,6 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSONResponse(w, http.StatusOK, health)
-}
-
-// isValidAPIKey checks if the provided token is a valid API key
-func (s *Server) isValidAPIKey(token string) bool {
-	for _, key := range s.config.Security.APIKeys {
-		if key == token {
-			return true
-		}
-	}
-	return false
 }
 
 // isValidAdminAPIKey checks if the provided token is a valid admin API key

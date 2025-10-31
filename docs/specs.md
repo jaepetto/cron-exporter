@@ -32,9 +32,12 @@ A Go-based API and web server to centralize cron job results and export their st
   - Automatic failure if no result within automatic_failure_threshold (per job)
   - Metrics include all user-supplied labels
 - Security:
-  - All admin/CRUD endpoints authenticated by API keys or tokens
-  - All submission endpoints authenticated (per job or global tokens)
-  - All endpoints over HTTPS
+  - Two-tier authentication system for enhanced security isolation
+  - Admin API keys for job management operations (CRUD endpoints)
+  - Per-job API keys for result submissions (unique key per job)
+  - Automatic API key generation with secure random data and validation
+  - Job isolation: each job can only submit results for itself
+  - All endpoints over HTTPS in production
 - Data Retention:
   - Configurable retention above default (e.g., 30 or 90 days)
   - Option to purge logs, redact sensitive “output” fields
@@ -57,6 +60,7 @@ A Go-based API and web server to centralize cron job results and export their st
 {
   "job_name": "db_import",
   "host": "backup3",
+  "api_key": "cm_abcd1234567890abcdef123456789abcdef123456789abcd",
   "automatic_failure_threshold": 3600,
   "labels": {
     "env": "stage",
@@ -66,22 +70,28 @@ A Go-based API and web server to centralize cron job results and export their st
 }
 ```
 
-JobResult Submission Example
+### JobResult Submission Example
 
-```json
-{
-  "job_name": "sync_db",
-  "host": "web1",
-  "status": "success",
-  "labels": {
-    "env": "prod",
-    "team": "infra",
-    "type": "backup"
-  },
-  "duration": 27,
-  "timestamp": "2025-10-30T19:56:00Z"
-}
+```bash
+# Using job-specific API key for result submission
+curl -X POST http://localhost:8080/api/job-result \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: cm_abc123456789abcdef123456789abcdef123456789abcd" \
+  -d '{
+    "job_name": "sync_db",
+    "host": "web1",
+    "status": "success",
+    "labels": {
+      "env": "prod",
+      "team": "infra",
+      "type": "backup"
+    },
+    "duration": 27,
+    "timestamp": "2025-10-30T19:56:00Z"
+  }'
 ```
+
+**Security Note**: Each job can only submit results for itself. The API validates that the job name and host in the request match the job associated with the provided API key.
 
 ### Prometheus Metrics Example
 
@@ -98,14 +108,33 @@ cronjob_status{job_name="db_import",host="backup3",env="stage",status="maintenan
 cronjob_status_reason{job_name="db_import",host="backup3",env="stage"} "maintenance"
 ```
 
+### Authentication System
+
+The system implements a two-tier authentication model:
+
+#### Admin API Keys
+- **Purpose**: Job management operations (CRUD)
+- **Configuration**: `CRONMETRICS_SECURITY_ADMIN_API_KEYS` environment variable
+- **Usage**: Required for all job management endpoints
+- **Header**: `Authorization: Bearer <admin-api-key>`
+
+#### Per-Job API Keys
+- **Purpose**: Job result submissions (isolated per job)
+- **Generation**: Automatically generated when creating jobs (or custom via `--api-key`)
+- **Format**: `cm_` prefix + base32-encoded random data (52 chars)
+- **Usage**: Each job uses its own unique key for result submissions
+- **Header**: `X-API-Key: <job-specific-api-key>`
+- **Security**: Jobs can only submit results for themselves
+
 ### OpenAPI (Swagger) API
 
 See `docs/openapi.yaml` for full schema and example requests/responses.
 
-- `/job` [POST, GET] — create/list jobs
-- `/job/{id}` [GET, PUT, DELETE] — read/update/delete single job
-- `/job-result` [POST] — submit job result
-- `/metrics` [GET] — Prometheus metrics
+- `/job` [POST, GET] — create/list jobs (Admin API key required)
+- `/job/{id}` [GET, PUT, DELETE] — read/update/delete single job (Admin API key required)
+- `/job-result` [POST] — submit job result (Per-job API key required)
+- `/metrics` [GET] — Prometheus metrics (No authentication)
+- `/health` [GET] — Health check (No authentication)
 
 ### Tooling & Codebase
 
@@ -131,10 +160,27 @@ See `docs/openapi.yaml` for full schema and example requests/responses.
 ### CLI Example
 
 ```bash
+# Server management
 cronmetrics serve --config /etc/cronmetrics/config.yaml
+
+# Job management with API key generation
 cronmetrics job add --name backup --host db1 --threshold 600 --label env=prod
+# Output: Job 'backup@db1' created successfully
+#         API Key: cm_abc123456789abcdef123456789abcdef123456789abcd
+#         NOTE: Save this API key for your cron jobs to submit results.
+#         You can retrieve it later using: cronmetrics job show --name backup --host db1
+
+# Job management with custom API key
+cronmetrics job add --name backup2 --host db1 --api-key cm_custom-key --threshold 600
+
+# Update job settings
 cronmetrics job update --name backup --maintenance true
+cronmetrics job update --name backup --api-key cm_new-rotated-key
+
+# List jobs with API key visibility
 cronmetrics job list --label env=prod
+cronmetrics job list --show-api-keys  # Shows masked keys for security
+cronmetrics job show --name backup --host db1  # Shows full API key
 ```
 
 ### Logging Conventions
@@ -164,4 +210,10 @@ cronmetrics job list --label env=prod
 
 ### Changelog
 
+- v0.2, 2025-10-31: **Per-job API key authentication system**
+  - Added two-tier authentication (admin keys vs per-job keys)
+  - Implemented automatic API key generation with `cm_` prefix
+  - Enhanced security with job-specific result submission validation
+  - Updated CLI with API key management features
+  - Added database migration for API key storage
 - v0.1, 2025-10-30: Initial specification and system design

@@ -128,6 +128,7 @@ func (d *Database) getMigrationFiles() ([]string, error) {
 	migrations := []string{
 		"001_create_jobs_table.sql",
 		"002_create_job_results_table.sql",
+		"003_add_api_key_to_jobs.sql",
 	}
 
 	sort.Strings(migrations)
@@ -205,6 +206,12 @@ func (d *Database) getMigrationSQL(filename string) (string, error) {
 			CREATE INDEX idx_job_results_job ON job_results(job_name, host);
 			CREATE INDEX idx_job_results_timestamp ON job_results(timestamp);
 			CREATE INDEX idx_job_results_status ON job_results(status);
+		`, nil
+
+	case "003_add_api_key_to_jobs.sql":
+		return `
+			ALTER TABLE jobs ADD COLUMN api_key TEXT;
+			CREATE UNIQUE INDEX idx_jobs_api_key ON jobs(api_key) WHERE api_key IS NOT NULL;
 		`, nil
 
 	default:
