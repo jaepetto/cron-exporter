@@ -411,6 +411,11 @@ func parseLabels(labelStings []string) (map[string]string, error) {
 
 // printJobsTable prints jobs in table format
 func printJobsTable(jobs []*model.Job) {
+	if len(jobs) == 0 {
+		fmt.Println("No jobs found")
+		return
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	if showApiKeys {

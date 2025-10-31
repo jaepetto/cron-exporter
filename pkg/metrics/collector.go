@@ -15,8 +15,9 @@ import (
 
 // Collector implements Prometheus metrics collection for cron jobs
 type Collector struct {
-	jobStore *model.JobStore
-	registry *prometheus.Registry
+	jobStore       *model.JobStore
+	jobResultStore *model.JobResultStore
+	registry       *prometheus.Registry
 
 	// Metrics
 	jobStatus       *prometheus.GaugeVec
@@ -27,10 +28,11 @@ type Collector struct {
 }
 
 // NewCollector creates a new metrics collector
-func NewCollector(jobStore *model.JobStore) *Collector {
+func NewCollector(jobStore *model.JobStore, jobResultStore *model.JobResultStore) *Collector {
 	collector := &Collector{
-		jobStore: jobStore,
-		registry: prometheus.NewRegistry(),
+		jobStore:       jobStore,
+		jobResultStore: jobResultStore,
+		registry:       prometheus.NewRegistry(),
 	}
 
 	// Define metrics - use only fixed labels, dynamic labels will be added at runtime
@@ -120,7 +122,7 @@ func (c *Collector) Gather() (string, error) {
 
 	// Generate job status metrics
 	for _, job := range jobs {
-		status, _ := c.calculateJobStatus(job, now)
+		status, reason := c.calculateJobStatus(job, now)
 
 		// Build labels string
 		var labels []string
@@ -132,9 +134,9 @@ func (c *Collector) Gather() (string, error) {
 			labels = append(labels, fmt.Sprintf(`%s="%s"`, k, v))
 		}
 
-		// Add status label for maintenance/paused jobs
-		if job.Status == "maintenance" || job.Status == "paused" {
-			labels = append(labels, fmt.Sprintf(`status="%s"`, job.Status))
+		// Always add status label based on the calculated reason
+		if reason != "" {
+			labels = append(labels, fmt.Sprintf(`status="%s"`, reason))
 		}
 
 		labelsStr := strings.Join(labels, ",")
@@ -242,9 +244,21 @@ func (c *Collector) calculateJobStatus(job *model.Job, now time.Time) (float64, 
 		return 0, "missed_deadline"
 	}
 
-	// TODO: Check last job result status
-	// For now, assume success if within threshold and not in maintenance
-	return 1, ""
+	// Get the most recent job result to determine actual status
+	if c.jobResultStore != nil {
+		results, err := c.jobResultStore.GetJobResults(job.Name, job.Host, 1)
+		if err == nil && len(results) > 0 {
+			lastResult := results[0]
+			if lastResult.Status == "success" {
+				return 1, "success"
+			} else if lastResult.Status == "failure" {
+				return 0, "failure"
+			}
+		}
+	}
+
+	// Fallback: assume success if within threshold and not in maintenance
+	return 1, "success"
 }
 
 // writeMetricFamily writes a metric family in Prometheus text format

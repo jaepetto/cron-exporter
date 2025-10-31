@@ -66,7 +66,7 @@ func runServer() error {
 	jobResultStore := model.NewJobResultStore(sqlDB)
 
 	// Initialize metrics collector
-	metricsCollector := metrics.NewCollector(jobStore)
+	metricsCollector := metrics.NewCollector(jobStore, jobResultStore)
 	if err := metricsCollector.Register(); err != nil {
 		return fmt.Errorf("failed to register metrics collector: %w", err)
 	}

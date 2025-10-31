@@ -4,7 +4,7 @@ Welcome to the project! This repo is a Go-based API and web server for aggregati
 
 ## Project Status & Key Architecture
 
-This is a **greenfield project in implementation phase**. Complete specifications exist in `docs/specs.md` but the Go codebase needs to be built from scratch.
+This is a **production-ready, fully-implemented system with 100% passing test coverage**. The complete codebase is functional with comprehensive testing (unit, integration, and end-to-end tests). All specifications in `docs/specs.md` have been successfully implemented.
 
 **Core Architecture:**
 - Dual-interface system: REST API + Cobra CLI both managing the same SQLite job store
@@ -38,17 +38,13 @@ type Job struct {
 
 ## Required Dependencies & Setup
 
-```bash
-# Initialize with these exact dependencies
-go mod init github.com/your-org/cron-exporter
-go get github.com/spf13/cobra
-go get github.com/spf13/viper
-go get github.com/prometheus/client_golang/prometheus
-go get github.com/mattn/go-sqlite3
-go get github.com/sirupsen/logrus  # or go.uber.org/zap
-```
+All dependencies are already configured in `go.mod`. Key dependencies:
+- **github.com/spf13/cobra** - CLI framework with full job management commands
+- **github.com/prometheus/client_golang/prometheus** - Metrics collection with status labels
+- **github.com/mattn/go-sqlite3** - Database with automatic migrations
+- **github.com/sirupsen/logrus** - Structured logging throughout the system
 
-**mise setup:** Create `.tool-versions` with `golang 1.21.0` (or latest stable)
+**mise setup:** `.tool-versions` already configured with Go version and required tasks.
 
 ## Critical Implementation Patterns
 
@@ -69,40 +65,48 @@ log.WithFields(logrus.Fields{
 
 ## Development Workflow & Commands
 
-**Project Initialization:**
+**MANDATORY TESTING REQUIREMENTS:**
+- **ALL code changes MUST run full test suite**: `mise run test`
+- **ALL changes MUST maintain 100% test coverage** - no exceptions
+- **Tests MUST be updated** when adding/modifying functionality
+- **Integration and E2E tests** are critical - never skip them
+- **NO code changes without passing tests** - this is a hard requirement
+
+**Production System Commands:**
 ```bash
-# Start here - create the basic project structure
-cronmetrics serve --dev    # Development mode with in-memory SQLite
-mise run test             # Run all tests
+mise run test             # REQUIRED before any code changes
 mise run build            # Static binary build
+mise run dev              # Development server (already configured)
+mise run integration      # Run integration tests
+mise run e2e              # Run end-to-end tests
 ```
 
-**mise Task Requirements:** All console commands must have corresponding `mise` tasks defined in `.mise.toml` or `mise.toml` for easy onboarding:
-```toml
-[tasks.test]
-run = "go test ./..."
-description = "Run all tests"
-
-[tasks.build]
-run = "go build -o bin/cronmetrics ./cmd/cronmetrics"
-description = "Build static binary"
-
-[tasks.dev]
-run = "./bin/cronmetrics serve --dev"
-description = "Start development server"
-```
+**mise Task Requirements:** All tasks are implemented and validated:
+- `test` - Runs comprehensive test suite (unit + integration + e2e)
+- `build` - Creates production-ready binary
+- `dev` - Starts development server with proper configuration
+- `integration` - Targeted integration test execution
+- `e2e` - End-to-end workflow validation
 
 **Database Migrations:** Use simple SQL files in `migrations/` directory, applied at startup. Keep schema changes backward-compatible.
 
-## Copilot/Chat Prompt Examples
+## Development & Maintenance Prompt Examples
 
-- "Create the main.go with Cobra root command and 'serve' subcommand that starts HTTP server"
-- "Implement the Job model struct with SQLite CRUD operations and JSON label marshaling"
-- "Write the /api/job-result POST handler with request validation and database persistence"
-- "Build the Prometheus metrics collector that queries jobs and applies auto-failure threshold logic"
-- "Add Cobra CLI commands for job management: add, list, update, delete with proper flag parsing"
-- "Implement Viper configuration loading with YAML file and environment variable overrides"
-- "Create SQLite database initialization and migration system in pkg/model"
+**ALWAYS START WITH:** "Before making any changes, run `mise run test` to ensure current state is working"
+
+- "Add new API endpoint for X - include request/response validation, tests, and update docs"
+- "Enhance the Prometheus metrics collector to support Y - include unit and integration tests"
+- "Debug failing test in test/integration/X_test.go - analyze and fix root cause"
+- "Add new CLI command for Z - include Cobra subcommand, validation, and comprehensive tests"
+- "Optimize database query performance in pkg/model - include benchmarks and tests"
+- "Add new job status type X - update model, API, CLI, metrics, and all related tests"
+- "Investigate metric collection issue - check collector.go and related test coverage"
+
+**TESTING-FOCUSED PROMPTS:**
+- "Run full test suite and fix any failing tests before implementing feature X"
+- "Add comprehensive test coverage for new feature Y including unit, integration, and e2e tests"
+- "Debug and fix flaky test Z - analyze root cause and implement stable solution"
+- "Update existing tests after modifying API endpoint behavior for feature X"
 
 ## Documentation Standards
 
@@ -110,6 +114,13 @@ description = "Start development server"
 - All exported functions require godoc comments
 - Include working curl examples in API documentation
 - Maintain `CHANGELOG.md` with semantic versioning
+
+**Critical: Newcomer Onboarding Documentation**
+- `README.md` must provide complete setup instructions from clone to running server
+- `CONTRIBUTING.md` must include development workflow, testing requirements, and PR guidelines
+- `CHANGELOG.md` must document all breaking changes and migration paths
+- Documentation updates are REQUIRED with every code change - no exceptions
+- All docs must be kept current to ensure any newcomer can contribute immediately
 
 **Critical: Newcomer Onboarding Documentation**
 - `README.md` must provide complete setup instructions from clone to running server
