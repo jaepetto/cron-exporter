@@ -67,6 +67,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker
     if: github.event_name != 'pull_request'
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
 
     steps:
     - name: Run Trivy vulnerability scanner
