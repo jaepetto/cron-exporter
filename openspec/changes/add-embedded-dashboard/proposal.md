@@ -43,7 +43,7 @@ Add an optional embedded web dashboard that provides:
 ## Design Principles
 
 1. **Optional by Default**: Dashboard must be completely optional, disabled by default
-2. **No External Dependencies**: Use only Go standard library and existing dependencies
+2. **Minimal External Dependencies**: Use Go standard library, existing dependencies, and embedded HTMX
 3. **Minimal Resource Impact**: Lightweight implementation that doesn't affect core functionality
 4. **Security Conscious**: Same authentication model as API endpoints
 5. **Mobile Friendly**: Responsive design that works on various screen sizes
@@ -111,35 +111,167 @@ dashboard:
 - **Performance Impact**: Dashboard queries could affect API performance
   - *Mitigation*: Efficient queries, optional caching, load testing
 
-## Success Criteria
+## Acceptance Criteria
 
-### Functional Requirements
-- [ ] Dashboard accessible at configurable URL path
-- [ ] All job CRUD operations available via web UI
-- [ ] Real-time status updates without page refresh
-- [ ] Responsive design works on desktop and mobile
-- [ ] Same authentication model as existing API
+### Core Dashboard Functionality
 
-### Non-Functional Requirements
-- [ ] Dashboard adds <500KB to binary size
-- [ ] Page load time <2 seconds on typical deployments
-- [ ] No external JavaScript dependencies
-- [ ] Compatible with existing configuration system
-- [ ] Zero impact on core functionality when disabled
+**AC-1: Dashboard Accessibility**
+- [ ] Dashboard is accessible at configurable URL path (default: `/dashboard`)
+- [ ] Dashboard can be enabled/disabled via configuration
+- [ ] Dashboard is disabled by default for backward compatibility
+- [ ] Configuration validation prevents path conflicts with existing routes
 
-### User Experience Goals
-- [ ] New users can understand job status within 30 seconds
-- [ ] Job creation/editing possible without reading documentation
-- [ ] Status information updates automatically without user action
-- [ ] UI works without JavaScript (graceful degradation)
+**AC-2: Job Management Interface**
+- [ ] Complete job CRUD operations available via web interface
+- [ ] Job creation form with validation for all required fields
+- [ ] Job editing preserves existing data and allows modifications
+- [ ] Job deletion requires confirmation and provides clear feedback
+- [ ] Job status display shows current state, last run time, and failure reasons
 
-## Open Questions
+**AC-3: Authentication Integration**
+- [ ] Dashboard reuses existing admin API key authentication
+- [ ] Unauthenticated access returns appropriate HTTP 401 responses
+- [ ] Authentication can be disabled via configuration for development
+- [ ] All dashboard operations respect existing authorization model
 
-1. **UI Framework**: Vanilla JS vs lightweight framework (Alpine.js, htmx)?
-2. **Theming**: Support for dark/light themes or custom CSS?
-3. **Pagination**: How to handle deployments with hundreds of jobs?
-4. **Filtering**: What job filtering/searching capabilities are needed?
-5. **Integration**: Should dashboard link to Prometheus/Grafana when available?
+### HTMX Integration & Interactivity
+
+**AC-4: Dynamic Content Updates**
+- [ ] HTMX library (~14KB) embedded in binary
+- [ ] Form submissions use HTMX for inline validation and feedback
+- [ ] Job list updates without full page reloads
+- [ ] Search results appear in real-time as user types
+- [ ] Status toggles provide immediate visual feedback
+
+**AC-5: Real-time Features**
+- [ ] Job status updates appear automatically via Server-Sent Events
+- [ ] Status changes broadcast to all connected dashboard clients
+- [ ] Connection failures gracefully fallback to periodic polling
+- [ ] Real-time updates work with HTMX partial template rendering
+
+### Theme System
+
+**AC-6: Dark/Light Theme Support**
+- [ ] Theme toggle button available in dashboard header
+- [ ] Themes switch immediately without page reload
+- [ ] User theme preference persists across browser sessions
+- [ ] System theme detection and automatic theme selection
+- [ ] All UI components (forms, tables, status indicators) support both themes
+
+**AC-7: Theme Implementation**
+- [ ] CSS custom properties used for theme variables
+- [ ] Smooth transitions between theme switches
+- [ ] Theme-aware status colors and indicators
+- [ ] Accessibility maintained in both themes (contrast ratios)
+
+### Search and Filtering
+
+**AC-8: Multi-Criteria Search**
+- [ ] Search supports filtering by host, name, status, and tags
+- [ ] Search syntax supports "key:value" format (e.g., `host:server1`)
+- [ ] Multiple criteria can be combined (e.g., `host:server1 status:active`)
+- [ ] Search is case-insensitive and supports partial matches
+- [ ] Search results update in real-time via HTMX
+
+**AC-9: Search User Experience**
+- [ ] Search input provides autocomplete suggestions
+- [ ] Invalid search syntax shows helpful error messages
+- [ ] Search history can be cleared or managed
+- [ ] Search state persists during navigation within dashboard
+
+### Lazy Loading and Performance
+
+**AC-10: Job List Performance**
+- [ ] Initial page load shows first 25 jobs
+- [ ] Infinite scroll loads additional jobs progressively
+- [ ] Loading states displayed during data fetching
+- [ ] Performance remains acceptable with 1000+ jobs
+- [ ] Lazy loading works without JavaScript (graceful degradation)
+
+**AC-11: Responsive Design**
+- [ ] Mobile-optimized layout with touch-friendly controls
+- [ ] Tablet layout with appropriate spacing and navigation
+- [ ] Desktop layout maximizes screen real estate efficiently
+- [ ] All interactive elements meet minimum touch target sizes (44px)
+- [ ] Text remains readable at all screen sizes
+
+### Performance Requirements
+
+**AC-12: Binary Size and Resource Usage**
+- [ ] Total binary size increase remains under 500KB
+- [ ] Dashboard adds less than 20MB memory usage under normal load
+- [ ] Static assets served with appropriate caching headers
+- [ ] CSS and JavaScript minified and optimized
+
+**AC-13: Response Times**
+- [ ] Dashboard home page loads within 2 seconds
+- [ ] Job list API endpoints respond within 500ms
+- [ ] Search results appear within 300ms of user input
+- [ ] Theme switches complete within 100ms
+
+### Backward Compatibility
+
+**AC-14: Existing Functionality Preservation**
+- [ ] All existing API endpoints remain unchanged
+- [ ] CLI functionality operates identically
+- [ ] Metrics endpoint performance unaffected
+- [ ] Configuration file format maintains backward compatibility
+
+**AC-15: Optional Feature Impact**
+- [ ] Dashboard disabled has zero impact on core functionality
+- [ ] Server startup time not significantly increased
+- [ ] Memory usage unchanged when dashboard disabled
+
+### Security and Data Integrity
+
+**AC-16: Input Validation and XSS Protection**
+- [ ] All form inputs validated against expected schemas
+- [ ] HTML template rendering uses automatic escaping
+- [ ] URL parameters sanitized before processing
+- [ ] Content Security Policy headers prevent XSS attacks
+
+**AC-17: CSRF Protection**
+- [ ] State-changing operations validate request origin
+- [ ] Cross-origin requests appropriately rejected
+- [ ] SameSite cookie attributes implemented where applicable
+
+### User Experience
+
+**AC-18: Usability Goals**
+- [ ] New users understand job status within 30 seconds of accessing dashboard
+- [ ] Job creation/editing possible without consulting documentation
+- [ ] Status information updates automatically without user intervention
+- [ ] Error messages provide clear, actionable guidance
+
+**AC-19: Accessibility**
+- [ ] Keyboard navigation works for all interactive elements
+- [ ] Screen reader compatibility maintained
+- [ ] Color contrast ratios meet WCAG 2.1 AA standards
+- [ ] Focus indicators visible and consistent
+
+### Testing and Quality Assurance
+
+**AC-20: Test Coverage**
+- [ ] Unit test coverage remains at 100%
+- [ ] Integration tests cover all dashboard endpoints
+- [ ] End-to-end tests validate complete user workflows
+- [ ] Cross-browser compatibility verified (Chrome, Firefox, Safari, Edge)
+
+**AC-21: Error Handling**
+- [ ] Network failures gracefully handled with user feedback
+- [ ] Invalid configurations provide clear error messages
+- [ ] Database connection issues don't crash dashboard
+- [ ] Partial failures allow continued operation where possible
+
+## Design Decisions
+
+Based on requirements analysis, the following design decisions have been made:
+
+1. **UI Framework**: **HTMX** - Provides dynamic interactivity with minimal JavaScript complexity
+2. **Theming**: **Dark/Light Theme Toggle** - Support both themes with user preference persistence
+3. **Pagination**: **Lazy Loading** - Progressive loading for large job lists to improve performance
+4. **Filtering**: **Multi-Criteria Search** - Jobs searchable by host, name, status, and tags
+5. **Integration**: **Standalone Dashboard** - No external integrations to maintain simplicity
 
 ## Dependencies
 
@@ -150,7 +282,9 @@ dashboard:
 - Configuration system
 
 ### External Dependencies
-- None (design principle: no new external dependencies)
+
+- **HTMX** (~14KB) - Embedded JavaScript library for dynamic interactions
+- No runtime external dependencies (HTMX embedded in binary)
 
 ## Timeline Estimate
 

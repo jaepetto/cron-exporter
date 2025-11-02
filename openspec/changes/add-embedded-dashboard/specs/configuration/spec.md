@@ -37,9 +37,11 @@ dashboard:
   title: "Job Monitor"
   refresh_interval: 10
   auth_required: false
-  max_jobs_per_page: 25
+  lazy_load_size: 25
+  default_theme: "dark"
+  enable_search: true
 ```
-**Expected**: Dashboard configured with all specified values
+**Expected**: Dashboard configured with all specified values including theming and search
 
 ### Configuration Validation
 

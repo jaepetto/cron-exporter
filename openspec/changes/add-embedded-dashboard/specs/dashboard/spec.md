@@ -186,6 +186,106 @@ User-Agent: Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)
 ```
 **Expected**: Tablet-optimized layout with appropriate spacing and controls
 
+### HTMX Integration
+
+### Requirement: Dynamic content updates with HTMX
+The dashboard SHALL use HTMX for dynamic content updates without full page reloads.
+
+**Details:**
+- HTMX library MUST be embedded in the binary (~14KB)
+- Form submissions MUST use HTMX for inline validation and feedback
+- Job status updates MUST use HTMX partial template rendering
+- Search functionality MUST provide real-time results via HTMX
+
+#### Scenario: HTMX job search
+```http
+GET /dashboard/jobs/search?q=host:server1
+X-Requested-With: XMLHttpRequest
+HX-Request: true
+```
+**Expected**: Partial HTML with filtered job list, no full page reload
+
+#### Scenario: HTMX form submission
+```http
+POST /dashboard/jobs
+Content-Type: application/x-www-form-urlencoded
+HX-Request: true
+
+name=test-job&host=server1&automatic_failure_threshold=3600
+```
+**Expected**: Form validation feedback via partial template, success state update
+
+### Theme System
+
+### Requirement: Dark/light theme support
+The dashboard SHALL provide dark and light theme options with user preference persistence.
+
+**Details:**
+- Theme toggle MUST be available in dashboard header
+- User preference MUST persist across browser sessions
+- System theme detection MUST be supported
+- All UI components MUST support both themes
+
+#### Scenario: Theme toggle activation
+```http
+GET /dashboard/theme/toggle
+HX-Request: true
+```
+**Expected**: Theme switched, preference saved, UI updated without page reload
+
+#### Scenario: Theme preference persistence
+```javascript
+// localStorage check
+localStorage.getItem('dashboard-theme') === 'dark'
+```
+**Expected**: User's theme preference restored on page load
+
+### Lazy Loading and Search
+
+### Requirement: Job list lazy loading
+The dashboard SHALL implement lazy loading for job lists to handle large datasets efficiently.
+
+**Details:**
+- Initial load MUST show first 25 jobs
+- Infinite scroll MUST load additional jobs progressively
+- Loading states MUST be shown during data fetch
+- Performance MUST remain acceptable with 1000+ jobs
+
+#### Scenario: Initial job list load
+```http
+GET /dashboard/jobs
+```
+**Expected**: First 25 jobs displayed with lazy loading trigger at bottom
+
+#### Scenario: Lazy load more jobs
+```http
+GET /dashboard/jobs/load-more?offset=25&limit=25
+HX-Request: true
+```
+**Expected**: Next 25 jobs appended to existing list via HTMX
+
+### Requirement: Multi-criteria job search
+The dashboard SHALL provide comprehensive search functionality across job attributes.
+
+**Details:**
+- Search MUST support filtering by host, name, status, and tags
+- Search syntax MUST support "key:value" format (e.g., "host:server1")
+- Search results MUST update in real-time as user types
+- Search MUST be case-insensitive and support partial matches
+
+#### Scenario: Multi-criteria search
+```http
+GET /dashboard/jobs/search?q=host:server1 status:active tag:prod
+HX-Request: true
+```
+**Expected**: Jobs matching all criteria returned via HTMX partial update
+
+#### Scenario: Real-time search typing
+```javascript
+// User types "host:ser" in search box
+```
+**Expected**: Search results update automatically, showing hosts matching "ser"
+
 ## MODIFIED Requirements
 
 ### HTTP Server Configuration

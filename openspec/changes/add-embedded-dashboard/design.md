@@ -65,7 +65,9 @@ type DashboardConfig struct {
     Title           string `mapstructure:"title"`             // Default: "Cron Monitor"
     RefreshInterval int    `mapstructure:"refresh_interval"`  // Default: 5 seconds
     AuthRequired    bool   `mapstructure:"auth_required"`     // Default: true
-    MaxJobsPerPage  int    `mapstructure:"max_jobs_per_page"` // Default: 50
+    LazyLoadSize    int    `mapstructure:"lazy_load_size"`    // Default: 25 jobs per load
+    DefaultTheme    string `mapstructure:"default_theme"`     // Default: "light" (light/dark)
+    EnableSearch    bool   `mapstructure:"enable_search"`     // Default: true
 }
 ```
 
@@ -75,18 +77,23 @@ The dashboard will add the following routes to the existing HTTP server:
 
 ```
 GET  /dashboard                    # Main dashboard (job overview)
-GET  /dashboard/jobs               # Job list page
+GET  /dashboard/jobs               # Job list page with lazy loading
+GET  /dashboard/jobs/search        # HTMX job search endpoint
+GET  /dashboard/jobs/load-more     # HTMX lazy loading endpoint
 GET  /dashboard/jobs/new           # Job creation form
-POST /dashboard/jobs               # Create new job
+POST /dashboard/jobs               # Create new job (HTMX compatible)
 GET  /dashboard/jobs/{id}          # Job detail page
 GET  /dashboard/jobs/{id}/edit     # Job edit form
-PUT  /dashboard/jobs/{id}          # Update job
-DELETE /dashboard/jobs/{id}        # Delete job
+PUT  /dashboard/jobs/{id}          # Update job (HTMX compatible)
+DELETE /dashboard/jobs/{id}        # Delete job (HTMX compatible)
+POST /dashboard/jobs/{id}/toggle   # Toggle job maintenance mode
 GET  /dashboard/jobs/{id}/history  # Job execution history
+GET  /dashboard/jobs/{id}/status   # HTMX job status partial
 GET  /dashboard/api/jobs           # JSON API for job data
 GET  /dashboard/api/stats          # JSON API for dashboard stats
+GET  /dashboard/theme/toggle       # Theme preference toggle
 GET  /dashboard/events             # Server-Sent Events stream
-GET  /dashboard/assets/*           # Static assets (CSS/JS)
+GET  /dashboard/assets/*           # Static assets (CSS/JS/HTMX)
 ```
 
 ## Data Models
@@ -163,10 +170,64 @@ func (tm *TemplateManager) Render(w http.ResponseWriter, name string, data inter
 ```
 
 **Template Features:**
+
 - XSS protection via automatic HTML escaping
 - Reusable components and partials
 - Layout inheritance with base templates
 - Custom template functions for formatting
+- HTMX integration for dynamic content updates
+- Theme-aware styling with CSS custom properties
+
+### HTMX Integration
+
+Use HTMX for dynamic interactivity without complex JavaScript:
+
+```go
+type HTMXHandler struct {
+    jobStore   *model.JobStore
+    templates  *TemplateManager
+}
+
+func (h *HTMXHandler) HandleJobSearch(w http.ResponseWriter, r *http.Request) {
+    query := r.URL.Query().Get("q")
+    filters := parseSearchFilters(query) // host:server1, status:active, tag:prod
+    jobs := h.jobStore.SearchJobs(filters)
+    h.templates.RenderPartial(w, "job_list_partial", jobs)
+}
+```
+
+**HTMX Features:**
+
+- Lazy loading for job lists with infinite scroll
+- Real-time search without page refresh
+- Form submissions with inline validation
+- Job status toggles with immediate feedback
+- Partial page updates for better performance
+
+### Theme System
+
+Implement dark/light theme toggle with CSS custom properties:
+
+```css
+:root {
+    --bg-primary: #ffffff;
+    --text-primary: #1a1a1a;
+    --border-color: #e2e8f0;
+}
+
+[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --text-primary: #ffffff;
+    --border-color: #374151;
+}
+```
+
+**Theme Features:**
+
+- User preference persistence via localStorage
+- System theme detection and auto-switching
+- Smooth theme transitions
+- Theme-aware status indicators and charts
 
 ### Asset Management
 
