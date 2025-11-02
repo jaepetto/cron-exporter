@@ -199,3 +199,7 @@ description = "Run CI pipeline: lint, security scan, test, build"
 [tasks.ci-full]
 run = "mise run lint && mise run security && mise run test-all && mise run build-all"
 description = "Run full CI pipeline including multi-platform builds"
+
+[tools]
+node = "25.1.0"
+npm = "11.6.2"
