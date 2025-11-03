@@ -3,120 +3,122 @@
 **Change ID**: `add-embedded-dashboard`
 **Status**: Draft
 
-## Phase 1: Core Dashboard (MVP)
+## Phase 1: Core Dashboard Foundation
 
 ### Backend Infrastructure
 
-- [ ] **T1.1**: Add dashboard configuration to `Config` struct
-  - Add `DashboardConfig` struct with enabled, path, title, refresh_interval, auth_required fields
-  - Update default configuration values
-  - Add validation for dashboard configuration
+- [ ] **T1.1**: Extend configuration system
+  - Add `DashboardConfig` struct to existing `Config` in `pkg/config/config.go`
+  - Fields: enabled, path, title, refresh_interval, page_size, auth_required
+  - Update default configuration values with backward compatibility
+  - Add validation for dashboard configuration (path conflicts, intervals)
 
-- [ ] **T1.2**: Create dashboard package structure
-  - Create `pkg/dashboard/` package
-  - Create `handler.go` for HTTP handlers
-  - Create `templates.go` for HTML template management
-  - Create `assets.go` for embedded CSS/JS
+- [ ] **T1.2**: Set up Gin framework integration
+  - Add Gin dependency to `go.mod`
+  - Create `pkg/dashboard/` package structure
+  - Create `routes.go` for Gin route definitions
+  - Create `handlers.go` for HTTP handlers
+  - Create `middleware.go` for authentication middleware
 
-- [ ] **T1.3**: Implement dashboard HTTP handlers
-  - Dashboard home page handler (job status overview)
-  - Job list API endpoint for AJAX calls
-  - Job details page handler
-  - Job create/edit form handlers
-  - Job delete confirmation handler
+- [ ] **T1.3**: Implement asset embedding system
+  - Create `pkg/dashboard/assets/` directory structure
+  - Set up Go 1.16+ embed directive for static assets
+  - Embed Bootstrap 5 CSS (~200KB) and JavaScript
+  - Embed HTMX library (~14KB) for dynamic interactions
+  - Create `assets.go` with embedded file serving handlers
 
-- [ ] **T1.4**: Integrate dashboard routes into main server
-  - Add dashboard route prefix to `pkg/api/server.go`
-  - Apply authentication middleware to dashboard routes
-  - Add dashboard configuration to server initialization
+- [ ] **T1.4**: Integrate Gin sub-router with existing server
+  - Mount Gin router at `/dashboard/*` in existing HTTP server
+  - Use `http.StripPrefix` for proper path handling
+  - Maintain single HTTP server architecture
+  - Add dashboard initialization to server startup
 
-### Frontend Templates
+### Authentication & Security
 
-- [ ] **T1.5**: Create base HTML templates with HTMX integration
-  - Base layout template with navigation and theme support
-  - Job status overview page template with lazy loading
-  - Job list component template with search functionality
-  - Job form template (create/edit) with HTMX validation
-  - HTMX partial templates for dynamic updates
-  - Error page templates
+- [ ] **T1.5**: Implement HTTP Basic Auth integration
+  - Create authentication middleware for Gin routes
+  - Reuse existing admin API key validation system
+  - Support API key as password (username can be anything)
+  - Add stateless authentication without session storage
+  - Handle authentication errors with proper HTTP responses
 
-- [ ] **T1.6**: Implement theme-aware embedded CSS
-  - CSS custom properties for light/dark themes
-  - Responsive grid layout styles
-  - Job status indicators (success/failure/maintenance colors)
-  - Form styling and validation states
-  - Mobile-friendly responsive breakpoints
-  - Theme toggle switch styling
+### Frontend Templates & UI
 
-- [ ] **T1.7**: Add HTMX and search functionality
-  - Embed HTMX library (~14KB) in assets
-  - Multi-criteria search (host, name, status, tags)
-  - Lazy loading with infinite scroll
-  - Theme preference persistence
-  - Form validation with inline feedback
-  - Status badge real-time updates
+- [ ] **T1.6**: Create Go HTML templates with Bootstrap 5
+  - Base layout template with Bootstrap 5 navigation
+  - Dashboard home page template (job overview with status cards)
+  - Job list template with Bootstrap tables and pagination
+  - Job create/edit forms with Bootstrap form components
+  - Job delete confirmation modal using Bootstrap modals
+  - Error page templates with Bootstrap alert components
 
-### Data Integration
+- [ ] **T1.7**: Implement HTMX dynamic interactions
+  - Form submissions without page reload using HTMX
+  - Live job status updates via HTMX polling
+  - Dynamic search with real-time filtering
+  - Inline form validation with Bootstrap feedback classes
+  - Toast notifications for success/error feedback
+  - Progressive enhancement approach for JavaScript-disabled browsers
 
-- [ ] **T1.8**: Create dashboard service layer
-  - Job summary service (status counts, recent failures)
-  - Job list service with filtering capabilities
-  - Job detail service with execution history
-  - Dashboard-specific data transformation
+- [ ] **T1.8**: Add error handling and user feedback
+  - Bootstrap toast components for operation feedback
+  - Inline validation errors with Bootstrap form validation
+  - Modal dialogs for critical errors (authentication, server issues)
+  - Graceful degradation with server-side fallbacks
 
-- [ ] **T1.9**: Implement authentication integration
-  - Reuse existing admin API key authentication
-  - Add dashboard-specific authentication middleware
-  - Handle authentication errors in web UI
+### Data Integration & Business Logic
 
-## Phase 2: Enhanced Features
+- [ ] **T1.9**: Create dashboard service layer
+  - Integrate with existing `JobStore` and `JobResultStore`
+  - Implement job summary calculations (status counts, failure rates)
+  - Add job list service with filtering and pagination
+  - Create performance indexes for dashboard queries (no schema changes)
+  - Add automatic failure detection based on job thresholds
 
-### Real-time Updates
+- [ ] **T1.10**: Implement core dashboard routes
+  - `GET /dashboard/` - Dashboard home page
+  - `GET /dashboard/jobs` - Job list with search/filter
+  - `GET /dashboard/jobs/new` - Job creation form
+  - `POST /dashboard/jobs` - Job creation handler
+  - `GET /dashboard/jobs/:id/edit` - Job edit form
+  - `PUT /dashboard/jobs/:id` - Job update handler
+  - `DELETE /dashboard/jobs/:id` - Job deletion handler
 
-- [ ] **T2.1**: Implement Server-Sent Events (SSE)
-  - SSE endpoint for job status updates
-  - Client-side SSE handling in JavaScript
-  - Fallback to polling for browsers without SSE support
+## Phase 2: Enhanced Features & Polish
 
-- [ ] **T2.2**: Add job execution history view
-  - Job execution history page template
-  - Pagination for large result sets
-  - Filter by date range and status
+### Real-time Updates & Search
 
-### Search and Filtering
+- [ ] **T2.1**: Implement job status monitoring
+  - Server-sent events for real-time job status updates
+  - HTMX polling fallback for SSE-incompatible browsers
+  - Auto-refresh configuration per dashboard settings
+  - Broadcast status changes to all connected clients
 
-- [ ] **T2.3**: Implement advanced search functionality
-  - Multi-criteria search backend (host, name, status, tags)
-  - Search result highlighting and ranking
-  - Search history and saved filters
-  - Real-time search with HTMX
+- [ ] **T2.2**: Advanced search and filtering
+  - Multi-criteria search (host, name, status, labels)
+  - Real-time search with HTMX partial updates
+  - Search result highlighting and pagination
+  - Filter by job status, maintenance mode, last execution time
 
-- [ ] **T2.4**: Add lazy loading implementation
-  - Infinite scroll with HTMX
-  - Progressive job loading (25 jobs per batch)
-  - Loading states and skeleton UI
-  - Performance optimization for large datasets
+- [ ] **T2.3**: Performance optimizations
+  - Job list pagination (configurable page size, default 25)
+  - Database query optimization with proper indexing
+  - Caching frequently accessed dashboard data
+  - Lazy loading for large job lists
 
-### Theme System
+### Mobile & Accessibility
 
-- [ ] **T2.5**: Implement dark/light theme system
-  - CSS custom properties for theme variables
-  - Theme toggle component with HTMX
-  - User preference persistence (localStorage)
-  - System theme detection and auto-switching
-  - Smooth theme transition animations
+- [ ] **T2.4**: Responsive design enhancements
+  - Mobile-optimized Bootstrap layouts
+  - Touch-friendly interaction elements (44px minimum targets)
+  - Tablet-specific layout adjustments
+  - Improved navigation for small screens
 
-### UI/UX Improvements
-
-- [ ] **T2.6**: Enhance responsive design
-  - Optimize layout for mobile devices
-  - Add touch-friendly interaction elements
-  - Improve tablet layout and navigation
-
-- [ ] **T2.7**: Add maintenance mode UI controls
-  - Toggle switches for job maintenance mode with HTMX
-  - Bulk maintenance operations
-  - Maintenance status indicators
+- [ ] **T2.5**: Accessibility compliance
+  - WCAG 2.1 AA compliance for all dashboard components
+  - Keyboard navigation support for all interactive elements
+  - Screen reader compatibility with ARIA labels
+  - High contrast color schemes and focus indicators
 
 ## Phase 3: Advanced Features (Future)
 
@@ -135,43 +137,65 @@
   - Bulk status changes
   - Bulk label management
 
-## Testing Tasks
+## Phase 3: Testing & Quality Assurance
 
-### Unit Tests
+### Mise Task Integration
 
-- [ ] **T-UT1**: Dashboard handler unit tests
-  - Test all HTTP handlers with various inputs
-  - Mock dependencies (JobStore, JobResultStore)
-  - Test authentication and authorization
+- [ ] **T3.1**: Configure mise development tasks
+  - `mise run dashboard-dev` - Start development server with dashboard enabled
+  - `mise run dashboard-build` - Build binary with embedded dashboard assets
+  - `mise run dashboard-test` - Run dashboard-specific Playwright tests
+  - Update existing `mise run test` to include dashboard tests
+  - Update existing `mise run build` to embed dashboard assets
 
-- [ ] **T-UT2**: Dashboard service unit tests
-  - Test job summary calculations
-  - Test data transformation logic
-  - Test error handling scenarios
+### Unit Tests (100% Coverage Required)
 
-- [ ] **T-UT3**: Template rendering tests
-  - Test template rendering with various data
-  - Test XSS protection in templates
-  - Test responsive layout generation
+- [ ] **T-UT1**: Gin handler unit tests
+  - Test all dashboard HTTP handlers with mock dependencies
+  - Test HTTP Basic Auth middleware integration
+  - Test error handling and response formats
+  - Test template rendering with various data scenarios
+
+- [ ] **T-UT2**: Dashboard service layer unit tests
+  - Test job summary calculations and status aggregation
+  - Test search and filtering logic with various criteria
+  - Test pagination and data transformation
+  - Mock JobStore and JobResultStore dependencies
+
+- [ ] **T-UT3**: Asset embedding and serving tests
+  - Test embedded Bootstrap and HTMX asset serving
+  - Test template compilation and rendering
+  - Test static file serving with proper MIME types
+  - Test asset caching headers and performance
 
 ### Integration Tests
 
-- [ ] **T-IT1**: Dashboard API integration tests
-  - Test complete job CRUD workflows via dashboard
-  - Test authentication integration
-  - Test error response handling
+- [ ] **T-IT1**: Full dashboard integration tests
+  - Test complete job CRUD workflows via web interface
+  - Test authentication integration with existing API key system
+  - Test database integration with existing schema + indexes
+  - Test error propagation and user feedback
 
-- [ ] **T-IT2**: Real-time update integration tests
-  - Test SSE functionality
-  - Test auto-refresh mechanisms
-  - Test concurrent user scenarios
+- [ ] **T-IT2**: HTMX and real-time features integration
+  - Test HTMX form submissions and partial updates
+  - Test server-sent events for job status updates
+  - Test search functionality with real-time filtering
+  - Test toast notifications and error handling
 
-### End-to-End Tests
+### End-to-End Tests (Playwright)
 
-- [ ] **T-E2E1**: Complete dashboard workflow tests
-  - Job creation to status monitoring workflow
-  - Multi-user concurrent access scenarios
-  - Dashboard performance under load
+- [ ] **T-E2E1**: Configure Playwright test suite
+  - Set up Playwright with Chrome-only, headless configuration
+  - Create test database isolation using in-memory SQLite
+  - Configure mise tasks for running E2E tests
+  - Set up CI/CD integration for automated testing
+
+- [ ] **T-E2E2**: Core dashboard workflow tests
+  - Job creation, editing, and deletion workflows
+  - Authentication flow with API key validation
+  - Search and filtering functionality
+  - Mobile responsiveness and touch interactions
+  - Error handling and user feedback scenarios
 
 ## Documentation Tasks
 
@@ -226,170 +250,117 @@
   - Provide default values for new options
   - Document configuration changes
 
-## Acceptance Criteria Validation
+## Quality Gates & Acceptance Validation
 
-### Core Functionality Validation
+### Pre-Implementation Validation
 
-- [ ] **T-ACC1**: Dashboard accessibility validation
-  - Verify dashboard accessible at configurable URL path
-  - Test dashboard enable/disable functionality
-  - Validate configuration prevents path conflicts
-  - Confirm backward compatibility (disabled by default)
+- [ ] **T-QG1**: Technical architecture review
+  - Validate Gin integration approach with existing HTTP server
+  - Confirm asset embedding strategy meets size constraints
+  - Review authentication integration maintains security standards
+  - Verify database integration approach (indexes only, no schema changes)
 
-- [ ] **T-ACC2**: Job management interface validation
-  - Test complete CRUD operations via web interface
-  - Validate form validation for all required fields
-  - Test job editing preserves existing data
-  - Verify deletion confirmation and feedback
-  - Check job status display accuracy
+### Implementation Quality Gates
 
-- [ ] **T-ACC3**: Authentication integration validation
-  - Test admin API key authentication reuse
-  - Verify HTTP 401 responses for unauthenticated access
-  - Test authentication disable configuration
-  - Validate authorization for all dashboard operations
+- [ ] **T-QG2**: Development milestone validation
+  - Phase 1: Core dashboard functionality complete with 100% test coverage
+  - Phase 2: Enhanced features and accessibility compliance validated
+  - Phase 3: Full test suite passing including Playwright E2E tests
+  - Phase 4: Documentation complete and deployment ready
 
-### HTMX and Interactivity Validation
+### Final Acceptance Criteria
 
-- [ ] **T-ACC4**: HTMX integration validation
-  - Verify HTMX library embedded in binary (~14KB)
-  - Test form submissions with inline validation
-  - Validate job list updates without page reloads
-  - Test real-time search functionality
-  - Verify status toggles provide immediate feedback
+- [ ] **T-ACC1**: Core functionality acceptance
+  - Dashboard accessible at configurable path, disabled by default
+  - Complete job CRUD operations via Bootstrap forms
+  - HTTP Basic Auth integration working with existing API keys
+  - Real-time updates via HTMX without breaking JavaScript-disabled browsers
 
-- [ ] **T-ACC5**: Real-time features validation
-  - Test Server-Sent Events for status updates
-  - Verify status changes broadcast to all clients
-  - Test fallback to polling on connection failures
-  - Validate HTMX partial template rendering
+- [ ] **T-ACC2**: Performance and compatibility acceptance
+  - Binary size increase <500KB with all embedded assets
+  - Dashboard page load times <2 seconds
+  - Zero performance impact on existing API/metrics when disabled
+  - Mobile responsive with 44px+ touch targets
 
-### Theme System Validation
+- [ ] **T-ACC3**: Testing and quality acceptance
+  - 100% unit test coverage maintained across all new code
+  - Integration tests cover all dashboard endpoints and workflows
+  - Playwright E2E tests validate complete user journeys
+  - All mise tasks functional for development workflow
 
-- [ ] **T-ACC6**: Theme functionality validation
-  - Test theme toggle in dashboard header
-  - Verify immediate theme switching without reload
-  - Test user preference persistence across sessions
-  - Validate system theme detection
-  - Check all UI components support both themes
+## Phase 4: Documentation & Deployment
 
-- [ ] **T-ACC7**: Theme implementation validation
-  - Verify CSS custom properties usage
-  - Test smooth theme transition animations
-  - Validate theme-aware status colors
-  - Check accessibility compliance in both themes
+### Documentation Updates
 
-### Search and Performance Validation
+- [ ] **T-DOC1**: Update project documentation
+  - Update README.md with dashboard setup instructions
+  - Add dashboard configuration examples to docs
+  - Update API documentation with new dashboard endpoints
+  - Create dashboard user guide with screenshots
 
-- [ ] **T-ACC8**: Search functionality validation
-  - Test multi-criteria search (host, name, status, tags)
-  - Verify "key:value" search syntax support
-  - Test multiple criteria combination
-  - Validate case-insensitive partial matching
-  - Check real-time search via HTMX
+- [ ] **T-DOC2**: Update deployment documentation
+  - Update Docker configurations for dashboard assets
+  - Add dashboard security considerations
+  - Document performance impact and tuning options
+  - Update configuration migration guide
 
-- [ ] **T-ACC9**: Search user experience validation
-  - Test autocomplete suggestions functionality
-  - Verify helpful error messages for invalid syntax
-  - Test search history management
-  - Validate search state persistence
+### Configuration & Deployment
 
-- [ ] **T-ACC10**: Lazy loading validation
-  - Test initial 25 job display
-  - Verify infinite scroll progressive loading
-  - Check loading states during data fetch
-  - Test performance with 1000+ jobs
-  - Validate graceful degradation without JavaScript
+- [ ] **T-CFG1**: Configuration validation and migration
+  - Add dashboard configuration validation rules
+  - Ensure backward compatibility with existing configs
+  - Add configuration conflict detection (path conflicts)
+  - Test configuration upgrades and defaults
 
-### Performance and Responsiveness Validation
+- [ ] **T-CFG2**: Production deployment preparation
+  - Update build processes for asset embedding
+  - Configure proper HTTP headers for static assets
+  - Add monitoring and logging integration
+  - Test dashboard in production-like environments
 
-- [ ] **T-ACC11**: Responsive design validation
-  - Test mobile layout with touch-friendly controls
-  - Verify tablet layout spacing and navigation
-  - Check desktop layout screen utilization
-  - Validate minimum touch target sizes (44px)
-  - Test text readability at all screen sizes
+## Dependencies and Technical Requirements
 
-- [ ] **T-ACC12**: Performance metrics validation
-  - Measure binary size increase (<500KB)
-  - Test memory usage increase (<20MB normal load)
-  - Verify appropriate caching headers for static assets
-  - Check CSS and JavaScript minification
+### Required Dependencies
 
-- [ ] **T-ACC13**: Response time validation
-  - Test dashboard home page load (<2 seconds)
-  - Verify job list API response times (<500ms)
-  - Check search result response times (<300ms)
-  - Test theme switch completion (<100ms)
+- **Gin Web Framework** - Lightweight Go HTTP web framework
+- **Bootstrap 5** (~200KB) - CSS framework embedded in binary
+- **HTMX** (~14KB) - JavaScript library embedded in binary
+- **Go 1.16+** - Required for embed directive support
 
-### Compatibility and Security Validation
+### Internal Architecture Dependencies
 
-- [ ] **T-ACC14**: Backward compatibility validation
-  - Verify all existing API endpoints unchanged
-  - Test CLI functionality remains identical
-  - Check metrics endpoint performance unaffected
-  - Validate configuration file backward compatibility
+- **Existing HTTP Server** - Dashboard mounts as sub-router
+- **JobStore & JobResultStore** - Data layer integration (no changes)
+- **Admin API Key System** - Authentication reuse (no changes)
+- **SQLite Database** - Performance indexes added (no schema changes)
 
-- [ ] **T-ACC15**: Security validation
-  - Test form input validation against expected schemas
-  - Verify HTML template automatic escaping
-  - Check URL parameter sanitization
-  - Validate Content Security Policy headers
-  - Test CSRF protection mechanisms
+### Development Tools Required
 
-### User Experience Validation
+- **Playwright** - End-to-end testing framework (Chrome-only)
+- **mise** - Task runner for development workflow
+- **Go testing tools** - Unit and integration test coverage
 
-- [ ] **T-ACC16**: Usability validation
-  - Test 30-second job status comprehension for new users
-  - Verify job creation/editing without documentation
-  - Check automatic status information updates
-  - Test error message clarity and actionability
+## Implementation Notes & Constraints
 
-- [ ] **T-ACC17**: Accessibility validation
-  - Test keyboard navigation for all interactive elements
-  - Verify screen reader compatibility
-  - Check WCAG 2.1 AA color contrast ratios
-  - Validate consistent focus indicators
+### Critical Requirements
 
-### Quality Assurance Validation
+- **100% Test Coverage** - All code must maintain existing coverage standards
+- **Backward Compatibility** - Dashboard disabled by default, zero impact when disabled
+- **Single Binary** - All assets embedded, no external file dependencies
+- **Performance** - Minimal impact on existing API and metrics endpoints
+- **Security** - Reuse existing authentication without bypasses or modifications
 
-- [ ] **T-ACC18**: Test coverage validation
-  - Maintain 100% unit test coverage
-  - Verify integration test coverage for all endpoints
-  - Check end-to-end test coverage for user workflows
-  - Test cross-browser compatibility (Chrome, Firefox, Safari, Edge)
+### Technical Constraints
 
-- [ ] **T-ACC19**: Error handling validation
-  - Test graceful network failure handling
-  - Verify clear error messages for invalid configurations
-  - Check dashboard stability during database connection issues
-  - Test partial failure recovery mechanisms
+- **No Schema Changes** - Only performance indexes, maintain existing database structure
+- **No Breaking Changes** - All existing APIs and CLI functionality unchanged
+- **Asset Size Limits** - Total embedded assets <500KB for reasonable binary size
+- **Memory Usage** - Dashboard features <20MB additional memory under normal load
+- **Response Times** - Dashboard pages <2s load time, API calls <500ms
 
-- [ ] **T-ACC20**: Optional feature impact validation
-  - Verify zero core functionality impact when dashboard disabled
-  - Test server startup time remains unchanged
-  - Check memory usage unchanged when disabled
-  - Validate no performance regression to existing functionality
+### Development Workflow
 
-## Dependencies and Blockers
-
-### Internal Dependencies
-- No blocking dependencies on other components
-- Dashboard reuses existing HTTP server, authentication, and data layers
-
-### External Dependencies
-
-- HTMX library (~14KB) - embedded in binary for dynamic interactions
-
-### Potential Blockers
-- Template complexity might require refactoring for maintainability
-- Performance testing might reveal need for caching layer
-- Security audit might require additional input validation
-
-## Notes
-
-- All tasks should maintain 100% test coverage requirement
-- Dashboard must be disabled by default to maintain backward compatibility
-- All new configuration options must have sensible defaults
-- Consider graceful degradation for JavaScript-disabled browsers
-- Performance impact on core functionality must be minimal
+- **mise-first Development** - All operations via mise tasks, no manual steps
+- **Chrome-only Testing** - Playwright tests optimized for single browser
+- **Headless CI/CD** - All automated testing in headless mode
+- **In-memory Test DB** - Isolated test execution with `:memory:` SQLite
