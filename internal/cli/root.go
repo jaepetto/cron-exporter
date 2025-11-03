@@ -94,15 +94,15 @@ func initLogging() {
 
 // loadConfig loads the configuration with proper precedence
 func loadConfig() (*config.Config, error) {
-	if dev {
-		return config.LoadDev()
-	}
-
 	configPath := cfgFile
 	if configPath == "" {
+		if dev {
+			return config.LoadDev()
+		}
 		configPath = "/etc/cronmetrics/config.yaml"
 	}
 
+	// Load from specified config file, even in dev mode
 	return config.Load(configPath)
 }
 

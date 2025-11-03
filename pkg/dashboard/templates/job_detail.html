@@ -101,9 +101,8 @@
                             </button>
                         </form>
 
-                        <form method="POST" action="{{.Config.Path}}/jobs/{{.Job.ID}}" style="display: inline;"
+                        <form method="POST" action="{{.Config.Path}}/jobs/{{.Job.ID}}/delete" style="display: inline;"
                               onsubmit="return confirm('Are you sure you want to delete this job?');">
-                            <input type="hidden" name="_method" value="DELETE">
                             <button type="submit" class="btn btn-danger">Delete Job</button>
                         </form>
                     </div>

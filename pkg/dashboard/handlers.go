@@ -31,7 +31,14 @@ func NewHandler(config *config.DashboardConfig, jobStore *model.JobStore, logger
 
 // ServeAssets serves embedded static assets
 func (h *Handler) ServeAssets(c *gin.Context) {
-	h.assetHandler.ServeHTTP(c.Writer, c.Request)
+	// Get the filepath parameter from Gin route
+	filepath := c.Param("filepath")
+
+	// Create a new request with the correct path
+	r := c.Request.Clone(c.Request.Context())
+	r.URL.Path = filepath
+
+	h.assetHandler.ServeHTTP(c.Writer, r)
 }
 
 // JobsList displays the main jobs list page
