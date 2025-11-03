@@ -35,8 +35,12 @@ run = "go build -o bin/cronmetrics ./cmd/cronmetrics"
 description = "Build static binary"
 
 [tasks.dev]
-run = "./bin/cronmetrics serve --dev"
-description = "Start development server"
+run = "./bin/cronmetrics serve --config dev-config-dashboard.yaml --dev &"
+description = "Start development server (in background) with dashboard enabled"
+
+[tasks.stop-dev]
+run = "pkill -f 'cronmetrics'"
+description = "Stop development server"
 
 [tasks.clean]
 run = "rm -rf bin/ dist/ coverage*.out coverage*.html gosec-report.*"
