@@ -18,13 +18,22 @@ Currently, the cron-exporter provides excellent Prometheus metrics integration f
 
 ## Proposed Solution
 
-Add an optional embedded web dashboard that provides:
+Add an optional embedded web dashboard built using the **GoAdmin framework** (<https://github.com/GoAdminGroup/go-admin>) that provides:
 
-1. **Live Status Dashboard**: Real-time view of all jobs with status, last run times, and failure reasons
-2. **Job Management Interface**: Full CRUD operations for jobs via web UI
-3. **Historical View**: Recent job execution history and trends
-4. **Maintenance Operations**: Easy job pause/resume functionality
-5. **Configuration Management**: Web-based configuration of thresholds and labels
+1. **Live Status Dashboard**: Real-time view of all jobs with status using GoAdmin's dashboard widgets
+2. **Job Management Interface**: Full CRUD operations for jobs via GoAdmin's data table system
+3. **Historical View**: Recent job execution history using GoAdmin's data visualization components
+4. **Maintenance Operations**: Easy job pause/resume functionality with GoAdmin form builders
+5. **Configuration Management**: Web-based configuration interface using GoAdmin's admin features
+
+### GoAdmin Framework Requirement
+
+The dashboard **must** be built using the GoAdmin framework to provide:
+- **Professional Admin Interface**: Enterprise-grade admin panel with AdminLTE3 theme
+- **Rich Data Management**: Built-in data tables, forms, and CRUD operations
+- **Extensibility**: Plugin system for future enhancements
+- **Proven Foundation**: Mature framework used in production systems
+- **Consistent UX**: Standardized admin interface patterns
 
 ## Benefits
 
@@ -43,65 +52,73 @@ Add an optional embedded web dashboard that provides:
 ## Design Principles
 
 1. **Optional by Default**: Dashboard must be completely optional, disabled by default
-2. **Minimal External Dependencies**: Use Go standard library, existing dependencies, and embedded HTMX
-3. **Minimal Resource Impact**: Lightweight implementation that doesn't affect core functionality
-4. **Security Conscious**: Same authentication model as API endpoints
-5. **Mobile Friendly**: Responsive design that works on various screen sizes
-6. **API Compatible**: All dashboard operations use existing API endpoints
+2. **GoAdmin Framework**: Use GoAdmin (<https://github.com/GoAdminGroup/go-admin>) as the foundation for the admin interface
+3. **Professional UI**: Leverage GoAdmin's AdminLTE3 theme for a modern, enterprise-grade admin experience
+4. **Security Conscious**: Integrate with GoAdmin's security features while maintaining existing authentication
+5. **Mobile Friendly**: Utilize GoAdmin's responsive design capabilities
+6. **Data-Centric**: Use GoAdmin's powerful data table and form builders for job management
 
 ## High-Level Architecture
 
 ### Frontend
-- **Technology**: Server-side rendered HTML with vanilla JavaScript
-- **Styling**: Embedded CSS (no external frameworks)
-- **Updates**: Server-Sent Events (SSE) for real-time status updates
-- **Forms**: Standard HTML forms with JavaScript enhancement
+
+- **Technology**: GoAdmin framework (<https://github.com/GoAdminGroup/go-admin>) for admin interface
+- **Architecture**: Plugin-based admin dashboard with customizable themes
+- **Updates**: Built-in real-time data updates and AJAX forms
+- **Forms**: GoAdmin form builder with validation and field types
 
 ### Backend Integration
-- **Routing**: New `/dashboard/*` route prefix in existing HTTP server
-- **Authentication**: Reuse existing admin API key authentication
-- **Data Source**: Use same `JobStore` and `JobResultStore` as API
-- **Templates**: Go `html/template` for server-side rendering
+
+- **Routing**: GoAdmin engine integrated with existing HTTP server
+- **Authentication**: Integrate GoAdmin auth system with existing admin API key
+- **Data Source**: GoAdmin data tables connected to `JobStore` and `JobResultStore`
+- **Templates**: GoAdmin theme system with customizable admin templates
 
 ### Configuration
+
 ```yaml
 dashboard:
   enabled: false          # Disabled by default
-  path: "/dashboard"      # URL path prefix
+  path: "/admin"          # GoAdmin URL path prefix
   title: "Cron Monitor"   # Page title
-  refresh_interval: 5     # Auto-refresh interval in seconds
+  theme: "adminlte3"      # GoAdmin theme (adminlte3, sword, etc.)
+  language: "en"          # Dashboard language
   auth_required: true     # Require admin API key
 ```
 
 ## Implementation Approach
 
 ### Phase 1: Core Dashboard (MVP)
-- Job status overview page
-- Basic job management (view, create, edit, delete)
-- Simple HTML templates with embedded CSS
-- Admin authentication integration
+
+- GoAdmin engine integration with existing HTTP server
+- Job data table with CRUD operations using GoAdmin table builder
+- AdminLTE3 theme integration for modern admin interface
+- Custom authentication adapter for existing API key system
 
 ### Phase 2: Enhanced Features
-- Real-time updates with Server-Sent Events
-- Job execution history view
-- Responsive design improvements
-- Maintenance mode toggle UI
+
+- Custom dashboard widgets for job status overview
+- GoAdmin form builder for job creation and editing
+- Real-time data updates using GoAdmin's built-in refresh capabilities
+- Custom job status indicators and maintenance mode toggles
 
 ### Phase 3: Advanced Features (Future)
-- Job status charts/graphs
-- Alert configuration UI
-- Bulk operations
-- Export functionality
+
+- GoAdmin chart integration for job execution trends
+- Custom plugins for bulk operations and data export
+- Advanced filtering using GoAdmin's filter system
+- Custom dashboard layouts for different user roles
 
 ## Risk Assessment
 
 ### Technical Risks
-- **Bundle Size**: Additional HTML/CSS/JS increases binary size
-  - *Mitigation*: Embed minimal, optimized assets
-- **Security Surface**: New web interface increases attack surface
-  - *Mitigation*: Reuse existing auth, follow secure coding practices
-- **Maintenance Overhead**: Frontend code requires ongoing maintenance
-  - *Mitigation*: Keep UI simple, use standard web technologies
+
+- **Framework Dependency**: Reliance on external GoAdmin framework
+  - *Mitigation*: GoAdmin is actively maintained with strong community support
+- **Binary Size Increase**: GoAdmin framework adds significant size to binary
+  - *Mitigation*: Optimize asset embedding, use minimal theme configuration
+- **Security Surface**: Admin interface increases attack surface
+  - *Mitigation*: Leverage GoAdmin's built-in security features, maintain auth integration
 
 ### Product Risks
 - **Scope Creep**: Dashboard could become overly complex
@@ -116,7 +133,8 @@ dashboard:
 ### Core Dashboard Functionality
 
 **AC-1: Dashboard Accessibility**
-- [ ] Dashboard is accessible at configurable URL path (default: `/dashboard`)
+
+- [ ] Dashboard is accessible at configurable URL path (default: `/admin`)
 - [ ] Dashboard can be enabled/disabled via configuration
 - [ ] Dashboard is disabled by default for backward compatibility
 - [ ] Configuration validation prevents path conflicts with existing routes
@@ -134,59 +152,68 @@ dashboard:
 - [ ] Authentication can be disabled via configuration for development
 - [ ] All dashboard operations respect existing authorization model
 
-### HTMX Integration & Interactivity
+### GoAdmin Integration & Features
 
-**AC-4: Dynamic Content Updates**
-- [ ] HTMX library (~14KB) embedded in binary
-- [ ] Form submissions use HTMX for inline validation and feedback
-- [ ] Job list updates without full page reloads
-- [ ] Search results appear in real-time as user types
-- [ ] Status toggles provide immediate visual feedback
+**AC-4: GoAdmin Framework Integration**
 
-**AC-5: Real-time Features**
-- [ ] Job status updates appear automatically via Server-Sent Events
-- [ ] Status changes broadcast to all connected dashboard clients
-- [ ] Connection failures gracefully fallback to periodic polling
-- [ ] Real-time updates work with HTMX partial template rendering
+- [ ] GoAdmin engine successfully integrated with existing HTTP server
+- [ ] Job data table implemented using GoAdmin table builder
+- [ ] Form validation and submission handled by GoAdmin form system
+- [ ] AdminLTE3 theme provides modern, responsive admin interface
+- [ ] Custom authentication adapter integrates with existing API key system
 
-### Theme System
+**AC-5: Dynamic Interface Features**
 
-**AC-6: Dark/Light Theme Support**
-- [ ] Theme toggle button available in dashboard header
-- [ ] Themes switch immediately without page reload
-- [ ] User theme preference persists across browser sessions
-- [ ] System theme detection and automatic theme selection
-- [ ] All UI components (forms, tables, status indicators) support both themes
+- [ ] Job list supports pagination, sorting, and filtering via GoAdmin
+- [ ] Form submissions provide immediate feedback and validation
+- [ ] Status toggles update via AJAX without full page reloads
+- [ ] Search and filter results update dynamically
+- [ ] Real-time job status updates through GoAdmin's refresh mechanisms
 
-**AC-7: Theme Implementation**
-- [ ] CSS custom properties used for theme variables
-- [ ] Smooth transitions between theme switches
-- [ ] Theme-aware status colors and indicators
-- [ ] Accessibility maintained in both themes (contrast ratios)
+### GoAdmin Theme System
 
-### Search and Filtering
+**AC-6: Theme Integration**
 
-**AC-8: Multi-Criteria Search**
-- [ ] Search supports filtering by host, name, status, and tags
-- [ ] Search syntax supports "key:value" format (e.g., `host:server1`)
-- [ ] Multiple criteria can be combined (e.g., `host:server1 status:active`)
-- [ ] Search is case-insensitive and supports partial matches
-- [ ] Search results update in real-time via HTMX
+- [ ] AdminLTE3 theme integrated as default dashboard theme
+- [ ] GoAdmin theme system provides consistent UI components
+- [ ] Theme configuration supports multiple built-in themes
+- [ ] Custom theme assets properly bundled with binary
+- [ ] All job management forms use GoAdmin theme styling
 
-**AC-9: Search User Experience**
-- [ ] Search input provides autocomplete suggestions
-- [ ] Invalid search syntax shows helpful error messages
-- [ ] Search history can be cleared or managed
-- [ ] Search state persists during navigation within dashboard
+**AC-7: Theme Customization**
 
-### Lazy Loading and Performance
+- [ ] Theme colors and styling customizable via configuration
+- [ ] GoAdmin's responsive design works across device sizes
+- [ ] Status indicators and job state colors integrate with theme
+- [ ] Dashboard maintains accessibility standards across all themes
 
-**AC-10: Job List Performance**
-- [ ] Initial page load shows first 25 jobs
-- [ ] Infinite scroll loads additional jobs progressively
-- [ ] Loading states displayed during data fetching
-- [ ] Performance remains acceptable with 1000+ jobs
-- [ ] Lazy loading works without JavaScript (graceful degradation)
+### GoAdmin Search and Filtering
+
+**AC-8: GoAdmin Filter System**
+
+- [ ] Search and filtering implemented using GoAdmin's built-in filter system
+- [ ] Multi-column search supports host, name, status, and labels
+- [ ] GoAdmin date range filters for job execution history
+- [ ] Filter persistence across page navigation
+- [ ] Export filtered results using GoAdmin export features
+
+**AC-9: Data Table Features**
+
+- [ ] GoAdmin data table provides sorting on all columns
+- [ ] Pagination implemented with configurable page sizes
+- [ ] Bulk operations available for multiple job selection
+- [ ] Column visibility toggle for customizable table views
+- [ ] Search highlighting and advanced filter UI
+
+### GoAdmin Performance and Pagination
+
+**AC-10: Data Loading Performance**
+
+- [ ] GoAdmin pagination handles large datasets efficiently
+- [ ] Table loading performance remains acceptable with 1000+ jobs
+- [ ] AJAX-based page navigation without full reloads
+- [ ] Configurable page sizes (25, 50, 100, 500 records)
+- [ ] Loading indicators during data fetch operations
 
 **AC-11: Responsive Design**
 - [ ] Mobile-optimized layout with touch-friendly controls
@@ -198,10 +225,11 @@ dashboard:
 ### Performance Requirements
 
 **AC-12: Binary Size and Resource Usage**
-- [ ] Total binary size increase remains under 500KB
-- [ ] Dashboard adds less than 20MB memory usage under normal load
-- [ ] Static assets served with appropriate caching headers
-- [ ] CSS and JavaScript minified and optimized
+
+- [ ] GoAdmin framework integration increases binary size by less than 2MB
+- [ ] Dashboard adds less than 30MB memory usage under normal load
+- [ ] GoAdmin static assets embedded efficiently in binary
+- [ ] Theme and plugin assets optimized for minimal size impact
 
 **AC-13: Response Times**
 - [ ] Dashboard home page loads within 2 seconds
@@ -267,11 +295,11 @@ dashboard:
 
 Based on requirements analysis, the following design decisions have been made:
 
-1. **UI Framework**: **HTMX** - Provides dynamic interactivity with minimal JavaScript complexity
-2. **Theming**: **Dark/Light Theme Toggle** - Support both themes with user preference persistence
-3. **Pagination**: **Lazy Loading** - Progressive loading for large job lists to improve performance
-4. **Filtering**: **Multi-Criteria Search** - Jobs searchable by host, name, status, and tags
-5. **Integration**: **Standalone Dashboard** - No external integrations to maintain simplicity
+1. **Admin Framework**: **GoAdmin** - Enterprise-grade admin interface framework with rich features
+2. **Theme System**: **AdminLTE3** - Modern, responsive admin theme with comprehensive UI components
+3. **Data Management**: **GoAdmin Table Builder** - Powerful data table system with built-in CRUD operations
+4. **Authentication**: **Custom GoAdmin Auth Adapter** - Integration with existing API key system
+5. **Integration**: **Embedded in Binary** - Self-contained solution with no external dependencies
 
 ## Dependencies
 
@@ -283,8 +311,10 @@ Based on requirements analysis, the following design decisions have been made:
 
 ### External Dependencies
 
-- **HTMX** (~14KB) - Embedded JavaScript library for dynamic interactions
-- No runtime external dependencies (HTMX embedded in binary)
+- **GoAdmin Framework** (<https://github.com/GoAdminGroup/go-admin>) - Complete admin interface framework
+- **AdminLTE3 Theme** - Modern responsive admin theme (included with GoAdmin)
+- **Database Adapters** - GoAdmin database integration layers
+- **Theme Assets** - CSS, JavaScript, and image assets embedded in binary
 
 ## Timeline Estimate
 
