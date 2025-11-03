@@ -1,0 +1,35 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30
+  write_timeout: 30
+  idle_timeout: 120
+
+database:
+  path: "/tmp/cronmetrics_dev.db"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 300
+
+metrics:
+  path: "/metrics"
+
+logging:
+  level: "debug"
+  format: "json"
+  output: "stdout"
+
+security:
+  require_https: false
+  api_keys:
+    - "test-api-key-12345"
+  admin_api_keys:
+    - "test-admin-key-12345"
+
+dashboard:
+  enabled: true
+  path: "/dashboard"
+  title: "Cron Monitor Dev"
+  refresh_interval: 5
+  page_size: 25
+  auth_required: true

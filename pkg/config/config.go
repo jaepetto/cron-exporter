@@ -9,11 +9,12 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Metrics  MetricsConfig  `mapstructure:"metrics"`
-	Logging  LoggingConfig  `mapstructure:"logging"`
-	Security SecurityConfig `mapstructure:"security"`
+	Server    ServerConfig    `mapstructure:"server"`
+	Database  DatabaseConfig  `mapstructure:"database"`
+	Metrics   MetricsConfig   `mapstructure:"metrics"`
+	Logging   LoggingConfig   `mapstructure:"logging"`
+	Security  SecurityConfig  `mapstructure:"security"`
+	Dashboard DashboardConfig `mapstructure:"dashboard"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -52,6 +53,16 @@ type SecurityConfig struct {
 	RequireHTTPS bool     `mapstructure:"require_https"`
 	TLSCertFile  string   `mapstructure:"tls_cert_file"`
 	TLSKeyFile   string   `mapstructure:"tls_key_file"`
+}
+
+// DashboardConfig holds dashboard configuration
+type DashboardConfig struct {
+	Enabled         bool   `mapstructure:"enabled"`
+	Path            string `mapstructure:"path"`
+	Title           string `mapstructure:"title"`
+	RefreshInterval int    `mapstructure:"refresh_interval"`
+	PageSize        int    `mapstructure:"page_size"`
+	AuthRequired    bool   `mapstructure:"auth_required"`
 }
 
 // Load loads configuration from file and environment variables
@@ -130,6 +141,14 @@ func setDefaults() {
 	viper.SetDefault("security.require_https", true)
 	viper.SetDefault("security.api_keys", []string{})
 	viper.SetDefault("security.admin_api_keys", []string{})
+
+	// Dashboard defaults
+	viper.SetDefault("dashboard.enabled", false)
+	viper.SetDefault("dashboard.path", "/dashboard")
+	viper.SetDefault("dashboard.title", "Cron Monitor")
+	viper.SetDefault("dashboard.refresh_interval", 5)
+	viper.SetDefault("dashboard.page_size", 25)
+	viper.SetDefault("dashboard.auth_required", true)
 }
 
 // validateConfig validates the loaded configuration
@@ -162,6 +181,26 @@ func validateConfig(config *Config) error {
 	// Validate database path is not empty
 	if config.Database.Path == "" {
 		return fmt.Errorf("database path cannot be empty")
+	}
+
+	// Validate dashboard configuration
+	if config.Dashboard.Enabled {
+		if config.Dashboard.Path == "" {
+			return fmt.Errorf("dashboard path cannot be empty when dashboard is enabled")
+		}
+
+		// Check for path conflicts
+		if config.Dashboard.Path == config.Metrics.Path {
+			return fmt.Errorf("dashboard path cannot be the same as metrics path")
+		}
+
+		if config.Dashboard.RefreshInterval < 1 || config.Dashboard.RefreshInterval > 300 {
+			return fmt.Errorf("dashboard refresh interval must be between 1 and 300 seconds")
+		}
+
+		if config.Dashboard.PageSize < 5 || config.Dashboard.PageSize > 100 {
+			return fmt.Errorf("dashboard page size must be between 5 and 100")
+		}
 	}
 
 	return nil
@@ -201,9 +240,18 @@ security:
   admin_api_keys:
     - "your-admin-api-key-here"
 
+dashboard:
+  enabled: false               # Disabled by default
+  path: "/dashboard"          # Dashboard URL path
+  title: "Cron Monitor"       # Page title
+  refresh_interval: 5         # Auto-refresh interval in seconds
+  page_size: 25               # Default number of jobs per page
+  auth_required: true         # Require admin API key
+
 # Environment variable overrides:
 # CRONMETRICS_SERVER_PORT=9090
 # CRONMETRICS_DATABASE_PATH=/custom/path/db.sqlite
 # CRONMETRICS_LOGGING_LEVEL=debug
+# CRONMETRICS_DASHBOARD_ENABLED=true
 `
 }

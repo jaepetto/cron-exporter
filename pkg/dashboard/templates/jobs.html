@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="{{.Config.Path}}/assets/dashboard.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{.Config.Path}}/" class="navbar-brand">{{.Title}}</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row mb-3">
+            <div class="col">
+                <h1>Jobs</h1>
+            </div>
+            <div class="col text-right">
+                <a href="{{.Config.Path}}/jobs/new" class="btn btn-primary">Add New Job</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <strong>Job List</strong>
+            </div>
+            <div class="card-body">
+                {{if .Jobs}}
+                <div class="table-responsive">
+                    <table class="table" id="jobs-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Host</th>
+                                <th>Status</th>
+                                <th>Last Reported</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{range .Jobs}}
+                            <tr data-job-id="{{.ID}}">
+                                <td><strong>{{.Name}}</strong></td>
+                                <td>{{.Host}}</td>
+                                <td class="job-status">
+                                    <span class="badge badge-{{statusBadge .Status}}">{{.Status}}</span>
+                                </td>
+                                <td class="job-last-reported">{{timeAgo .LastReportedAt}}</td>
+                                <td>
+                                    <a href="{{$.Config.Path}}/jobs/{{.ID}}" class="btn btn-sm btn-primary">View</a>
+                                    <a href="{{$.Config.Path}}/jobs/{{.ID}}/edit" class="btn btn-sm btn-secondary">Edit</a>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+                {{else}}
+                <div class="text-center p-3">
+                    <p class="text-muted">No jobs found. <a href="{{.Config.Path}}/jobs/new">Create your first job</a>.</p>
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{.Config.Path}}/assets/dashboard.js"></script>
+    <input type="hidden" id="refresh-interval" value="{{.Config.RefreshInterval}}">
+</body>
+</html>

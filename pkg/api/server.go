@@ -12,6 +12,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/jaepetto/cron-exporter/pkg/config"
+	"github.com/jaepetto/cron-exporter/pkg/dashboard"
 	"github.com/jaepetto/cron-exporter/pkg/metrics"
 	"github.com/jaepetto/cron-exporter/pkg/model"
 	"github.com/jaepetto/cron-exporter/pkg/util"
@@ -24,16 +25,29 @@ type Server struct {
 	jobStore       *model.JobStore
 	jobResultStore *model.JobResultStore
 	metrics        *metrics.Collector
+	dashboard      *dashboard.Dashboard
 }
 
 // NewServer creates a new API server instance
 func NewServer(cfg *config.Config, jobStore *model.JobStore, jobResultStore *model.JobResultStore, metricsCollector *metrics.Collector) *Server {
-	return &Server{
+	server := &Server{
 		config:         cfg,
 		jobStore:       jobStore,
 		jobResultStore: jobResultStore,
 		metrics:        metricsCollector,
 	}
+
+	// Initialize dashboard if enabled
+	if cfg.Dashboard.Enabled {
+		server.dashboard = dashboard.New(
+			&cfg.Dashboard,
+			jobStore,
+			cfg.Security.AdminAPIKeys,
+			logrus.StandardLogger(),
+		)
+	}
+
+	return server
 }
 
 // Handler returns the HTTP handler for the server
@@ -59,6 +73,12 @@ func (s *Server) Handler() http.Handler {
 		httpSwagger.DomID("swagger-ui"),
 	))
 	mux.HandleFunc("/api/openapi.yaml", s.handleOpenAPISpec)
+
+	// Mount dashboard if enabled
+	if s.dashboard != nil && s.dashboard.IsEnabled() {
+		// Mount Gin router as sub-handler
+		mux.Handle(s.config.Dashboard.Path+"/", http.StripPrefix(s.config.Dashboard.Path, s.dashboard.Router()))
+	}
 
 	// Add request logging middleware
 	return s.withLogging(mux)
