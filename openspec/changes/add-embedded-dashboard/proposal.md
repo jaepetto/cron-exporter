@@ -18,22 +18,23 @@ Currently, the cron-exporter provides excellent Prometheus metrics integration f
 
 ## Proposed Solution
 
-Add an optional embedded web dashboard built using the **GoAdmin framework** (<https://github.com/GoAdminGroup/go-admin>) that provides:
+Add an optional embedded web dashboard built using the **Gin web framework** that provides:
 
-1. **Live Status Dashboard**: Real-time view of all jobs with status using GoAdmin's dashboard widgets
-2. **Job Management Interface**: Full CRUD operations for jobs via GoAdmin's data table system
-3. **Historical View**: Recent job execution history using GoAdmin's data visualization components
-4. **Maintenance Operations**: Easy job pause/resume functionality with GoAdmin form builders
-5. **Configuration Management**: Web-based configuration interface using GoAdmin's admin features
+1. **Live Status Dashboard**: Simple, clean view of all jobs with current status and last run times
+2. **Job Management Interface**: Full CRUD operations for jobs via web forms
+3. **Job History View**: Recent job execution results and failure details
+4. **Maintenance Operations**: Easy job pause/resume toggle functionality
+5. **Simple Interface**: Clean, responsive design that works without external dependencies
 
-### GoAdmin Framework Requirement
+### Gin Framework Choice
 
-The dashboard **must** be built using the GoAdmin framework to provide:
-- **Professional Admin Interface**: Enterprise-grade admin panel with AdminLTE3 theme
-- **Rich Data Management**: Built-in data tables, forms, and CRUD operations
-- **Extensibility**: Plugin system for future enhancements
-- **Proven Foundation**: Mature framework used in production systems
-- **Consistent UX**: Standardized admin interface patterns
+The dashboard will be built using **Gin** (<https://github.com/gin-gonic/gin>) for the following reasons:
+
+- **Most Popular Go Web Framework**: Widely adopted with excellent community support
+- **Lightweight & Fast**: Minimal overhead, perfect for simple admin interfaces
+- **Built-in Template Engine**: HTML template rendering with layout support
+- **Middleware Support**: Easy authentication integration with existing API key system
+- **Simple & Focused**: No unnecessary complexity, just what's needed for job management
 
 ## Benefits
 
@@ -52,73 +53,305 @@ The dashboard **must** be built using the GoAdmin framework to provide:
 ## Design Principles
 
 1. **Optional by Default**: Dashboard must be completely optional, disabled by default
-2. **GoAdmin Framework**: Use GoAdmin (<https://github.com/GoAdminGroup/go-admin>) as the foundation for the admin interface
-3. **Professional UI**: Leverage GoAdmin's AdminLTE3 theme for a modern, enterprise-grade admin experience
-4. **Security Conscious**: Integrate with GoAdmin's security features while maintaining existing authentication
-5. **Mobile Friendly**: Utilize GoAdmin's responsive design capabilities
-6. **Data-Centric**: Use GoAdmin's powerful data table and form builders for job management
+2. **Lightweight Framework**: Use Gin web framework for minimal overhead and complexity
+3. **Simple & Clean**: Focus on essential functionality without unnecessary features
+4. **Security First**: NO authentication bypasses or dev-mode exceptions - identical auth in dev/prod
+5. **Mobile Friendly**: Responsive design using simple CSS (Bootstrap for styling)
+6. **Self-Contained**: Embed all static assets (CSS, JS) in the binary
+
+### Security Requirements
+
+**Mandatory Security Principle**: The dashboard implementation must maintain identical authentication behavior between development and production environments. This means:
+
+- **NO development-only authentication bypasses**
+- **NO configuration flags to disable authentication**
+- **NO special dev-mode authentication shortcuts**
+
+Development testing will use generated API keys in configuration files, ensuring developers experience the exact same authentication flow as end users.
 
 ## High-Level Architecture
 
 ### Frontend
 
-- **Technology**: GoAdmin framework (<https://github.com/GoAdminGroup/go-admin>) for admin interface
-- **Architecture**: Plugin-based admin dashboard with customizable themes
-- **Updates**: Built-in real-time data updates and AJAX forms
-- **Forms**: GoAdmin form builder with validation and field types
+- **Technology**: HTML templates with Bootstrap CSS for clean, responsive design
+- **Interactivity**: HTMX for dynamic form submissions and live updates (optional JavaScript fallback)
+- **Styling**: Bootstrap 5 embedded in binary using Go 1.16+ embed directive
+- **Updates**: Server-sent events for real-time job status updates
+- **Asset Structure**: Organized in `pkg/dashboard/assets/` with templates and static files embedded via `//go:embed`
 
 ### Backend Integration
 
-- **Routing**: GoAdmin engine integrated with existing HTTP server
-- **Authentication**: Integrate GoAdmin auth system with existing admin API key
-- **Data Source**: GoAdmin data tables connected to `JobStore` and `JobResultStore`
-- **Templates**: GoAdmin theme system with customizable admin templates
+- **Web Framework**: Gin router mounted as sub-router at `/dashboard/*` path within existing HTTP server using `http.StripPrefix`
+- **Authentication**: HTTP Basic Auth with API key as password (username can be anything), validated against existing admin API key system
+- **Session Management**: Stateless authentication - no session storage required, browser handles Basic Auth caching
+- **Data Source**: Direct access to existing `JobStore` and `JobResultStore` with existing schema
+- **Database**: Uses existing tables with performance indexes added for dashboard queries (no schema changes)
+- **Templates**: Go html/template with Gin's template rendering
+- **Integration**: Single HTTP server maintains self-contained principle with isolated dashboard routes
+
+### Error Handling & User Experience
+
+**Multi-layered User Feedback System:**
+
+- **Toast Notifications**: Non-blocking feedback for CRUD operations (success/error)
+  - Bootstrap toast components with auto-dismiss functionality
+  - HTMX integration for seamless operation feedback without page reload
+- **Inline Validation**: Contextual form error display
+  - Bootstrap validation classes for immediate visual feedback
+  - Field-level error messages with clear guidance for resolution
+- **Modal Error Dialogs**: Critical system errors (authentication failures, server errors)
+  - Bootstrap modal components for blocking errors requiring user attention
+  - Clear error messages with suggested corrective actions
+- **Graceful Degradation**: Full functionality maintained when JavaScript is disabled
+  - Server-side validation with redirect-based feedback mechanisms
+  - Progressive enhancement approach ensures universal accessibility
 
 ### Configuration
 
+Dashboard configuration extends the existing config struct with backward compatibility:
+
+```go
+// Extends existing Config struct in pkg/config/config.go
+type DashboardConfig struct {
+    Enabled         bool   `yaml:"enabled" default:"false"`
+    Path            string `yaml:"path" default:"/dashboard"`
+    Title           string `yaml:"title" default:"Cron Monitor"`
+    RefreshInterval int    `yaml:"refresh_interval" default:"5"`
+    PageSize        int    `yaml:"page_size" default:"25"`
+    AuthRequired    bool   `yaml:"auth_required" default:"true"`
+}
+```
+
 ```yaml
+# Example configuration (integrates with existing config file)
 dashboard:
   enabled: false          # Disabled by default
-  path: "/admin"          # GoAdmin URL path prefix
+  path: "/dashboard"      # Dashboard URL path prefix
   title: "Cron Monitor"   # Page title
-  theme: "adminlte3"      # GoAdmin theme (adminlte3, sword, etc.)
-  language: "en"          # Dashboard language
+  refresh_interval: 5     # Auto-refresh interval in seconds
+  page_size: 25           # Default number of jobs per page
   auth_required: true     # Require admin API key
+```
+
+### Route Structure
+
+```
+# HTML Pages (server-rendered)
+GET  /dashboard/                     -> redirect to /dashboard/jobs
+GET  /dashboard/jobs                -> job list page (main dashboard)
+GET  /dashboard/jobs/new            -> create job form
+GET  /dashboard/jobs/{id}           -> job detail/edit form
+POST /dashboard/jobs                -> create job (form submission)
+PUT  /dashboard/jobs/{id}           -> update job (form submission)
+DELETE /dashboard/jobs/{id}         -> delete job (form submission)
+
+# HTMX/AJAX Endpoints (JSON responses)
+GET  /dashboard/api/jobs            -> job list JSON (for live updates)
+GET  /dashboard/api/jobs/{id}/status -> job status JSON (for SSE)
+POST /dashboard/api/jobs/{id}/toggle -> pause/resume job
+GET  /dashboard/events              -> Server-Sent Events endpoint
+
+# Static Assets
+GET  /dashboard/static/css/*        -> embedded CSS files
+GET  /dashboard/static/js/*         -> embedded JS files
 ```
 
 ## Implementation Approach
 
 ### Phase 1: Core Dashboard (MVP)
 
-- GoAdmin engine integration with existing HTTP server
-- Job data table with CRUD operations using GoAdmin table builder
-- AdminLTE3 theme integration for modern admin interface
-- Custom authentication adapter for existing API key system
+- Gin router integration as sub-router within existing HTTP server
+- Job list view with status indicators and basic filtering
+- Job CRUD forms (create, edit, delete) with validation that works without JavaScript
+- Basic HTMX integration for inline form validation and feedback
+- HTTP Basic Auth middleware using existing API key system
+- **Mise tasks**: `mise run dev`, `mise run build`, `mise run test` (NO direct go/npm commands)
+- **Playwright tests**: Basic CRUD operations and authentication flow via `mise run dashboard-test`
 
 ### Phase 2: Enhanced Features
 
-- Custom dashboard widgets for job status overview
-- GoAdmin form builder for job creation and editing
-- Real-time data updates using GoAdmin's built-in refresh capabilities
-- Custom job status indicators and maintenance mode toggles
+- Real-time job status updates using Server-Sent Events
+- Advanced HTMX features for real-time search/filtering and dynamic updates
+- Job execution history view with pagination
+- Maintenance mode toggle and bulk operations
+- **Enhanced Playwright tests**: Real-time updates, search/filtering, responsive design (all via mise tasks)### Phase 3: Advanced Features (Future)
 
-### Phase 3: Advanced Features (Future)
+- Simple charts for job execution trends (using Chart.js)
+- Advanced search and filtering capabilities
+- Export functionality (CSV/JSON)
+- Dark/light theme toggle
+- **Additional Playwright tests**: Charts, advanced features, edge cases (via mise task orchestration)
 
-- GoAdmin chart integration for job execution trends
-- Custom plugins for bulk operations and data export
-- Advanced filtering using GoAdmin's filter system
-- Custom dashboard layouts for different user roles
+## Development Workflow Requirements
+
+### Mise Task Management
+
+All dashboard development must follow the established mise task pattern with NO direct tool usage:
+
+```toml
+# .mise.toml additions for dashboard
+[tasks.dashboard-dev]
+description = "Start development server with dashboard enabled and API key auth"
+run = "go run ./cmd/cronmetrics serve --config dev-config-dashboard.yaml"
+
+[tasks.dashboard-test]
+description = "Run dashboard-specific Playwright tests with automatic server lifecycle"
+run = [
+    "mise run build",  # Always rebuild before testing
+    "./scripts/run-playwright-tests.sh"  # Script handles server start/stop
+]
+
+[tasks.test]
+description = "Run complete test suite including dashboard Playwright tests"
+run = [
+    "mise run build",  # Rebuild on any backend changes
+    "go test ./...",
+    "mise run dashboard-test"  # This will handle its own server lifecycle
+]
+
+[tasks.build]
+description = "Build binary with embedded dashboard assets"
+run = "go build -o bin/cronmetrics ./cmd/cronmetrics"
+
+[tasks.lint]
+description = "Run linting on dashboard Go code"
+run = "golangci-lint run ./..."
+
+[tasks.dashboard-install]
+description = "Install Playwright and dashboard dependencies"
+run = "npx playwright install chromium"
+
+[tasks.watch-dev]
+description = "Watch for changes and rebuild automatically during development"
+run = "air -c .air.toml"  # Auto-rebuild on file changes
+
+# Example dev-config-dashboard.yaml
+dashboard:
+  enabled: true
+  path: "/dashboard"
+  auth_required: true  # NO bypass - always required
+api:
+  admin_key: "test-admin-key-12345"  # Generated test API key
+
+# Example test-config-dashboard.yaml (for Playwright tests)
+database:
+  driver: sqlite3
+  connection_string: ":memory:"  # In-memory database for test isolation
+dashboard:
+  enabled: true
+  path: "/dashboard"
+  auth_required: true
+api:
+  admin_key: "test-admin-key-12345"
+```
+
+### Playwright Test Lifecycle Script
+
+```bash
+#!/bin/bash
+# scripts/run-playwright-tests.sh
+set -e
+
+CONFIG_FILE="test-config-dashboard.yaml"
+PID_FILE="/tmp/cronmetrics-test.pid"
+
+# Cleanup function
+cleanup() {
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        echo "Stopping test server (PID: $PID)"
+        kill "$PID" 2>/dev/null || true
+        rm -f "$PID_FILE"
+    fi
+}
+
+# Set trap to cleanup on exit
+trap cleanup EXIT
+
+# Start server in background
+echo "Starting test server..."
+./bin/cronmetrics serve --config "$CONFIG_FILE" &
+echo $! > "$PID_FILE"
+
+# Wait for server to be ready
+sleep 3
+
+# Run Playwright tests headless
+echo "Running Playwright tests..."
+npx playwright test --config playwright-dashboard.config.js --reporter=html --reporter=line
+
+echo "Tests completed successfully"
+```
+
+### Playwright Configuration
+
+```javascript
+// playwright-dashboard.config.js
+const { devices } = require('@playwright/test');
+
+module.exports = {
+  testDir: './test/e2e-dashboard',
+  timeout: 30 * 1000,
+  expect: {
+    timeout: 5000
+  },
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [
+    ['html', { outputFolder: 'test-results/playwright-report', open: 'never' }],
+    ['line']
+  ],
+  use: {
+    baseURL: 'http://localhost:8080',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    headless: true,  // Always headless - no browser UI
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+    },
+  ],
+  webServer: undefined,  // Server managed by shell script, not Playwright
+};
+```
+
+### Tool Version Management & Build Automation
+
+**Mandatory Requirements**: All development commands must go through mise tasks with automatic rebuilding:
+
+- **NO direct `go` commands** - Use `mise run build`, `mise run test`, etc.
+- **NO direct `npm`/`npx` commands** - All Node.js tools via mise tasks
+- **NO direct `golangci-lint`** - Use `mise run lint`
+- **Automatic rebuilds** - Backend changes trigger rebuild before tests
+- **Server lifecycle management** - Tests automatically start/stop server
+- **Headless execution** - Tests run without browser UI or user interaction
+- **Consistent environments** - All developers use exact same tool versions
+- **Documentation through tasks** - `.mise.toml` serves as executable documentation
+
+### Playwright Testing Strategy
+
+- **Chrome-only testing**: No need for cross-browser compatibility
+- **Complete workflow coverage**: Every user interaction path tested
+- **Integration with existing CI**: Playwright tests run as part of `mise run test`
+- **Test data management**: Isolated test database for consistent test runs
+- **Tool version consistency**: Playwright installed via `mise run dashboard-install`
 
 ## Risk Assessment
 
 ### Technical Risks
 
-- **Framework Dependency**: Reliance on external GoAdmin framework
-  - *Mitigation*: GoAdmin is actively maintained with strong community support
-- **Binary Size Increase**: GoAdmin framework adds significant size to binary
-  - *Mitigation*: Optimize asset embedding, use minimal theme configuration
-- **Security Surface**: Admin interface increases attack surface
-  - *Mitigation*: Leverage GoAdmin's built-in security features, maintain auth integration
+- **Framework Dependency**: Reliance on external Gin framework
+  - *Mitigation*: Gin is the most popular Go web framework with excellent stability
+- **Binary Size Increase**: Additional templates, CSS, and JS assets
+  - *Mitigation*: Minimal asset footprint, optimize embedded resources (~200KB total)
+- **Security Surface**: New web interface increases attack surface
+  - *Mitigation*: Reuse existing authentication, follow secure coding practices
 
 ### Product Risks
 - **Scope Creep**: Dashboard could become overly complex
@@ -134,7 +367,7 @@ dashboard:
 
 **AC-1: Dashboard Accessibility**
 
-- [ ] Dashboard is accessible at configurable URL path (default: `/admin`)
+- [ ] Dashboard is accessible at configurable URL path (default: `/dashboard`)
 - [ ] Dashboard can be enabled/disabled via configuration
 - [ ] Dashboard is disabled by default for backward compatibility
 - [ ] Configuration validation prevents path conflicts with existing routes
@@ -147,73 +380,74 @@ dashboard:
 - [ ] Job status display shows current state, last run time, and failure reasons
 
 **AC-3: Authentication Integration**
-- [ ] Dashboard reuses existing admin API key authentication
+- [ ] Dashboard reuses existing admin API key authentication without modification
 - [ ] Unauthenticated access returns appropriate HTTP 401 responses
-- [ ] Authentication can be disabled via configuration for development
-- [ ] All dashboard operations respect existing authorization model
+- [ ] NO authentication bypass or dev-mode exceptions implemented
+- [ ] All dashboard operations respect existing authorization model consistently
+- [ ] Development and production use identical authentication flow
 
-### GoAdmin Integration & Features
+### Gin Framework Integration & Features
 
-**AC-4: GoAdmin Framework Integration**
+**AC-4: Gin Framework Integration**
 
-- [ ] GoAdmin engine successfully integrated with existing HTTP server
-- [ ] Job data table implemented using GoAdmin table builder
-- [ ] Form validation and submission handled by GoAdmin form system
-- [ ] AdminLTE3 theme provides modern, responsive admin interface
-- [ ] Custom authentication adapter integrates with existing API key system
+- [ ] Gin router successfully integrated as sub-router within existing HTTP server
+- [ ] HTML templates rendered using Gin's template engine
+- [ ] Form validation and submission handled with proper error messages
+- [ ] Bootstrap CSS provides clean, responsive interface
+- [ ] Authentication middleware integrates seamlessly with existing API key system
 
 **AC-5: Dynamic Interface Features**
 
-- [ ] Job list supports pagination, sorting, and filtering via GoAdmin
+- [ ] Job list supports pagination and basic sorting
 - [ ] Form submissions provide immediate feedback and validation
-- [ ] Status toggles update via AJAX without full page reloads
-- [ ] Search and filter results update dynamically
-- [ ] Real-time job status updates through GoAdmin's refresh mechanisms
+- [ ] HTMX enables dynamic updates without full page reloads
+- [ ] Search results filter job list in real-time
+- [ ] Server-sent events provide real-time job status updates
 
-### GoAdmin Theme System
+### Responsive Design & Styling
 
-**AC-6: Theme Integration**
+**AC-6: Bootstrap Integration**
 
-- [ ] AdminLTE3 theme integrated as default dashboard theme
-- [ ] GoAdmin theme system provides consistent UI components
-- [ ] Theme configuration supports multiple built-in themes
-- [ ] Custom theme assets properly bundled with binary
-- [ ] All job management forms use GoAdmin theme styling
+- [ ] Bootstrap 5 CSS framework embedded in binary for consistent styling
+- [ ] Clean, professional design with good typography and spacing
+- [ ] Responsive grid system works across all device sizes
+- [ ] Form components use Bootstrap styling for consistency
+- [ ] Status indicators use Bootstrap badge/alert components
 
-**AC-7: Theme Customization**
+**AC-7: Mobile & Accessibility**
 
-- [ ] Theme colors and styling customizable via configuration
-- [ ] GoAdmin's responsive design works across device sizes
-- [ ] Status indicators and job state colors integrate with theme
-- [ ] Dashboard maintains accessibility standards across all themes
+- [ ] Mobile-optimized layout with touch-friendly controls
+- [ ] Responsive navigation that works on small screens
+- [ ] Accessible color contrast and keyboard navigation
+- [ ] Loading states and user feedback clearly visible
 
-### GoAdmin Search and Filtering
+### Simple Search and Filtering
 
-**AC-8: GoAdmin Filter System**
+**AC-8: Basic Search & Filter**
 
-- [ ] Search and filtering implemented using GoAdmin's built-in filter system
-- [ ] Multi-column search supports host, name, status, and labels
-- [ ] GoAdmin date range filters for job execution history
-- [ ] Filter persistence across page navigation
-- [ ] Export filtered results using GoAdmin export features
+- [ ] Search input filters jobs by name, host, or status
+- [ ] Filter dropdown for job status (active, maintenance, paused)
+- [ ] Search results update in real-time as user types
+- [ ] Clear search/filter functionality
+- [ ] Search state preserved during navigation
 
-**AC-9: Data Table Features**
+**AC-9: Job List Features**
 
-- [ ] GoAdmin data table provides sorting on all columns
-- [ ] Pagination implemented with configurable page sizes
-- [ ] Bulk operations available for multiple job selection
-- [ ] Column visibility toggle for customizable table views
-- [ ] Search highlighting and advanced filter UI
+- [ ] Sortable columns for name, host, status, last run time
+- [ ] Pagination with configurable page sizes (25, 50, 100)
+- [ ] Job status indicators with clear visual distinctions
+- [ ] Quick action buttons for pause/resume/delete
+- [ ] Responsive table design that works on mobile
 
-### GoAdmin Performance and Pagination
+### Performance and Data Loading
 
-**AC-10: Data Loading Performance**
+**AC-10: Simple Performance Requirements**
 
-- [ ] GoAdmin pagination handles large datasets efficiently
-- [ ] Table loading performance remains acceptable with 1000+ jobs
-- [ ] AJAX-based page navigation without full reloads
-- [ ] Configurable page sizes (25, 50, 100, 500 records)
-- [ ] Loading indicators during data fetch operations
+- [ ] Job list loads quickly with up to 1000+ jobs
+- [ ] Pagination prevents overwhelming the browser
+- [ ] HTMX updates only necessary page sections
+- [ ] Minimal JavaScript footprint for fast loading
+- [ ] Graceful degradation when JavaScript disabled
 
 **AC-11: Responsive Design**
 - [ ] Mobile-optimized layout with touch-friendly controls
@@ -226,10 +460,9 @@ dashboard:
 
 **AC-12: Binary Size and Resource Usage**
 
-- [ ] GoAdmin framework integration increases binary size by less than 2MB
-- [ ] Dashboard adds less than 30MB memory usage under normal load
-- [ ] GoAdmin static assets embedded efficiently in binary
-- [ ] Theme and plugin assets optimized for minimal size impact
+- [ ] Total binary size increase remains under 300KB (Gin + Bootstrap + templates)
+- [ ] Static assets (CSS, JS, templates) efficiently embedded in binary
+- [ ] Minimal JavaScript footprint (HTMX ~14KB, Chart.js optional)
 
 **AC-13: Response Times**
 - [ ] Dashboard home page loads within 2 seconds
@@ -263,15 +496,21 @@ dashboard:
 - [ ] Cross-origin requests appropriately rejected
 - [ ] SameSite cookie attributes implemented where applicable
 
+**AC-18: No Authentication Bypasses**
+- [ ] NO development-only authentication bypasses implemented
+- [ ] NO configuration options to disable authentication for development
+- [ ] Development and production environments use identical authentication
+- [ ] Generated API keys in config files used for development testing
+
 ### User Experience
 
-**AC-18: Usability Goals**
+**AC-19: Usability Goals**
 - [ ] New users understand job status within 30 seconds of accessing dashboard
 - [ ] Job creation/editing possible without consulting documentation
 - [ ] Status information updates automatically without user intervention
 - [ ] Error messages provide clear, actionable guidance
 
-**AC-19: Accessibility**
+**AC-20: Accessibility**
 - [ ] Keyboard navigation works for all interactive elements
 - [ ] Screen reader compatibility maintained
 - [ ] Color contrast ratios meet WCAG 2.1 AA standards
@@ -279,27 +518,55 @@ dashboard:
 
 ### Testing and Quality Assurance
 
-**AC-20: Test Coverage**
+**AC-21: Test Coverage**
 - [ ] Unit test coverage remains at 100%
 - [ ] Integration tests cover all dashboard endpoints
 - [ ] End-to-end tests validate complete user workflows
-- [ ] Cross-browser compatibility verified (Chrome, Firefox, Safari, Edge)
+- [ ] Playwright tests cover all dashboard functionality (Chrome only)
 
-**AC-21: Error Handling**
+**AC-22: Error Handling**
 - [ ] Network failures gracefully handled with user feedback
 - [ ] Invalid configurations provide clear error messages
 - [ ] Database connection issues don't crash dashboard
 - [ ] Partial failures allow continued operation where possible
 
+### Developer Experience Requirements
+
+**AC-23: Mise Task Management**
+- [ ] `mise run test` - Runs complete test suite including Playwright tests
+- [ ] `mise run build` - Builds binary with embedded dashboard assets
+- [ ] `mise run dev` - Starts development server with dashboard enabled
+- [ ] `mise run dashboard-test` - Runs dashboard-specific Playwright tests
+- [ ] All dashboard-related tasks documented in `.mise.toml`
+- [ ] NO direct `go` or `npm` commands in development workflow
+- [ ] ALL tool execution goes through mise tasks for version consistency
+- [ ] Backend changes trigger automatic rebuild through mise tasks
+- [ ] Playwright tests automatically start/stop server during test execution
+- [ ] Tests run headless without requiring developer interaction
+
+**AC-24: Playwright Testing Requirements**
+- [ ] Playwright tests cover all CRUD operations (create, read, update, delete jobs)
+- [ ] Tests validate job status display and real-time updates
+- [ ] Form validation and error handling thoroughly tested
+- [ ] Authentication flow tested (login/logout with API key)
+- [ ] Search and filtering functionality verified
+- [ ] Responsive design tested on different viewport sizes
+- [ ] Tests run against Chrome browser only (as specified)
+- [ ] Playwright configuration integrated with existing test infrastructure
+- [ ] Tests automatically start server in background before execution
+- [ ] Server automatically killed after test completion
+- [ ] Tests run headless without starting web server UI or waiting for user input
+- [ ] Test results available for review without developer interaction
+
 ## Design Decisions
 
 Based on requirements analysis, the following design decisions have been made:
 
-1. **Admin Framework**: **GoAdmin** - Enterprise-grade admin interface framework with rich features
-2. **Theme System**: **AdminLTE3** - Modern, responsive admin theme with comprehensive UI components
-3. **Data Management**: **GoAdmin Table Builder** - Powerful data table system with built-in CRUD operations
-4. **Authentication**: **Custom GoAdmin Auth Adapter** - Integration with existing API key system
-5. **Integration**: **Embedded in Binary** - Self-contained solution with no external dependencies
+1. **Web Framework**: **Gin** - Most popular Go web framework, lightweight and well-documented
+2. **UI Framework**: **Bootstrap 5** - Clean, responsive design with minimal custom CSS
+3. **Interactivity**: **HTMX** - Dynamic updates without complex JavaScript
+4. **Authentication**: **Gin Middleware** - Simple integration with existing API key system
+5. **Templates**: **Go html/template** - Standard library templating with Gin integration
 
 ## Dependencies
 
@@ -311,19 +578,25 @@ Based on requirements analysis, the following design decisions have been made:
 
 ### External Dependencies
 
-- **GoAdmin Framework** (<https://github.com/GoAdminGroup/go-admin>) - Complete admin interface framework
-- **AdminLTE3 Theme** - Modern responsive admin theme (included with GoAdmin)
-- **Database Adapters** - GoAdmin database integration layers
-- **Theme Assets** - CSS, JavaScript, and image assets embedded in binary
+- **Gin Framework** (<https://github.com/gin-gonic/gin>) - Lightweight Go web framework
+- **Bootstrap 5** - CSS framework for responsive design (embedded in binary)
+- **HTMX** (~14KB) - JavaScript library for dynamic interactions (embedded in binary)
+- **Chart.js** (optional) - Simple charts for job execution trends
+
+### Development Dependencies
+
+- **Playwright** - End-to-end testing framework for dashboard functionality
+- **Mise Task Runner** - Task management and documentation via `.mise.toml`
 
 ## Timeline Estimate
 
 - **Research & Design**: 2-3 days
 - **Phase 1 Implementation**: 5-7 days
-- **Testing & Documentation**: 2-3 days
+- **Playwright Test Setup & Implementation**: 3-4 days
+- **Integration Testing & Documentation**: 2-3 days
 - **Phase 2 Enhancement**: 3-5 days
 
-**Total**: ~2-3 weeks for full implementation
+**Total**: ~3-4 weeks for full implementation (including comprehensive Playwright testing)
 
 ## Alternatives Considered
 
