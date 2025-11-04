@@ -271,3 +271,39 @@ body {
     overflow-x: auto;
   }
 }
+
+/* Real-time update animations */
+.table-row-updated {
+  background-color: #d1ecf1 !important;
+  transition: background-color 0.3s ease;
+}
+
+.table-row-updated td {
+  border-color: #bee5eb !important;
+}
+
+/* SSE connection status indicator */
+.sse-status {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 1000;
+}
+
+.sse-status.connected {
+  background-color: var(--bs-success);
+  color: white;
+}
+
+.sse-status.disconnected {
+  background-color: var(--bs-warning);
+  color: black;
+}
+
+.sse-status.error {
+  background-color: var(--bs-danger);
+  color: white;
+}

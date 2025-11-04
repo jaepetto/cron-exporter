@@ -544,6 +544,27 @@ func (s *Server) handleJobResult(w http.ResponseWriter, r *http.Request) {
 		}).Warn("failed to update job last reported timestamp")
 	}
 
+	// Broadcast job status change to dashboard clients if dashboard is enabled
+	if s.dashboard != nil && s.dashboard.IsEnabled() {
+		if broadcaster := s.dashboard.GetBroadcaster(); broadcaster != nil {
+			// Get the updated job to broadcast current status
+			if job, err := s.jobStore.GetJob(result.JobName, result.Host); err == nil {
+				// Determine if job is in failure state
+				isFailure := result.Status == "failure"
+
+				// Also check automatic failure threshold
+				if !isFailure && job.AutomaticFailureThreshold > 0 {
+					timeSinceLastReport := time.Since(job.LastReportedAt)
+					if timeSinceLastReport > time.Duration(job.AutomaticFailureThreshold)*time.Second {
+						isFailure = true
+					}
+				}
+
+				broadcaster.BroadcastJobStatusChange(job, isFailure)
+			}
+		}
+	}
+
 	s.writeJSONResponse(w, http.StatusCreated, map[string]string{
 		"status": "recorded",
 		"job":    fmt.Sprintf("%s@%s", result.JobName, result.Host),

@@ -63,6 +63,13 @@ type DashboardConfig struct {
 	RefreshInterval int    `mapstructure:"refresh_interval"`
 	PageSize        int    `mapstructure:"page_size"`
 	AuthRequired    bool   `mapstructure:"auth_required"`
+	// Real-time updates configuration
+	SSEEnabled      bool `mapstructure:"sse_enabled"`
+	SSETimeout      int  `mapstructure:"sse_timeout"`      // Connection timeout in seconds
+	SSEHeartbeat    int  `mapstructure:"sse_heartbeat"`    // Heartbeat interval in seconds
+	SSEMaxClients   int  `mapstructure:"sse_max_clients"`  // Maximum concurrent SSE clients
+	PollingFallback bool `mapstructure:"polling_fallback"` // Enable HTMX polling fallback
+	PollingInterval int  `mapstructure:"polling_interval"` // Polling interval in seconds
 }
 
 // Load loads configuration from file and environment variables
@@ -149,6 +156,13 @@ func setDefaults() {
 	viper.SetDefault("dashboard.refresh_interval", 5)
 	viper.SetDefault("dashboard.page_size", 25)
 	viper.SetDefault("dashboard.auth_required", true)
+	// Real-time updates defaults
+	viper.SetDefault("dashboard.sse_enabled", true)
+	viper.SetDefault("dashboard.sse_timeout", 300)       // 5 minutes
+	viper.SetDefault("dashboard.sse_heartbeat", 30)      // 30 seconds
+	viper.SetDefault("dashboard.sse_max_clients", 100)   // 100 concurrent connections
+	viper.SetDefault("dashboard.polling_fallback", true) // Enable HTMX polling fallback
+	viper.SetDefault("dashboard.polling_interval", 5)    // 5 seconds
 }
 
 // validateConfig validates the loaded configuration

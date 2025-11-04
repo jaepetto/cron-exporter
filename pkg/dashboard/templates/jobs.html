@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{.Title}}</title>
     <link rel="stylesheet" href="{{.Config.Path}}/assets/dashboard.css">
+    <script src="{{.Config.Path}}/assets/htmx.min.js"></script>
 </head>
 <body>
     <nav class="navbar">
@@ -30,7 +31,18 @@
             <div class="card-body">
                 {{if .Jobs}}
                 <div class="table-responsive">
-                    <table class="table" id="jobs-table">
+                    <table class="table" id="jobs-table"
+                           hx-ext="sse"
+                           sse-connect="{{.Config.Path}}/events"
+                           sse-swap="job-status-change:update-job-row"
+                           sse-swap="job-created:add-job-row"
+                           sse-swap="job-updated:update-job-row"
+                           sse-swap="job-deleted:remove-job-row"
+                           hx-trigger="sse:connection-lost"
+                           hx-get="{{.Config.Path}}/api/jobs"
+                           hx-swap="innerHTML"
+                           hx-select="tbody"
+                           hx-target="tbody">
                         <thead>
                             <tr>
                                 <th>Name</th>
@@ -42,7 +54,7 @@
                         </thead>
                         <tbody>
                             {{range .Jobs}}
-                            <tr data-job-id="{{.ID}}">
+                            <tr data-job-id="{{.ID}}" id="job-row-{{.ID}}">
                                 <td><strong>{{.Name}}</strong></td>
                                 <td>{{.Host}}</td>
                                 <td class="job-status">
@@ -69,5 +81,96 @@
 
     <script src="{{.Config.Path}}/assets/dashboard.js"></script>
     <input type="hidden" id="refresh-interval" value="{{.Config.RefreshInterval}}">
+    <input type="hidden" id="sse-enabled" value="{{.Config.SSEEnabled}}">
+    <input type="hidden" id="polling-fallback" value="{{.Config.PollingFallback}}">
+    <input type="hidden" id="polling-interval" value="{{.Config.PollingInterval}}">
+
+    <script>
+        // Initialize real-time updates on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const sseEnabled = document.getElementById('sse-enabled').value === 'true';
+            const pollingFallback = document.getElementById('polling-fallback').value === 'true';
+            const pollingInterval = parseInt(document.getElementById('polling-interval').value) || 5;
+
+            // Set up polling fallback for browsers that don't support SSE
+            if (pollingFallback && (!sseEnabled || !window.EventSource)) {
+                console.log('Using polling fallback for real-time updates');
+                setInterval(function() {
+                    htmx.trigger('#jobs-table tbody', 'htmx:trigger');
+                }, pollingInterval * 1000);
+            } else if (sseEnabled) {
+                console.log('Using Server-Sent Events for real-time updates');
+            }
+
+            // Custom SSE event handlers
+            htmx.on('htmx:sseError', function(event) {
+                console.warn('SSE connection error, falling back to polling if enabled');
+                if (pollingFallback) {
+                    setInterval(function() {
+                        htmx.trigger('#jobs-table tbody', 'htmx:trigger');
+                    }, pollingInterval * 1000);
+                }
+            });
+        });
+
+        // Custom event handlers for job updates
+        function updateJobRow(event) {
+            const data = JSON.parse(event.data);
+            const jobRow = document.getElementById('job-row-' + data.job_id);
+            if (jobRow) {
+                // Update status badge
+                const statusCell = jobRow.querySelector('.job-status .badge');
+                if (statusCell) {
+                    statusCell.textContent = data.status;
+                    statusCell.className = 'badge badge-' + getBadgeClass(data.status, data.is_failure);
+                }
+
+                // Update last reported time
+                const lastReportedCell = jobRow.querySelector('.job-last-reported');
+                if (lastReportedCell && data.last_reported_at) {
+                    lastReportedCell.textContent = formatTimeAgo(new Date(data.last_reported_at));
+                }
+
+                // Add visual feedback for updates
+                jobRow.classList.add('table-row-updated');
+                setTimeout(function() {
+                    jobRow.classList.remove('table-row-updated');
+                }, 2000);
+            }
+        }
+
+        function addJobRow(event) {
+            // Refresh the entire table when a new job is added
+            htmx.trigger('#jobs-table tbody', 'htmx:trigger');
+        }
+
+        function removeJobRow(event) {
+            const data = JSON.parse(event.data);
+            const jobRow = document.getElementById('job-row-' + data.job_id);
+            if (jobRow) {
+                jobRow.remove();
+            }
+        }
+
+        function getBadgeClass(status, isFailure) {
+            if (isFailure) return 'danger';
+            switch (status) {
+                case 'active': return 'success';
+                case 'maintenance': return 'warning';
+                case 'paused': return 'secondary';
+                default: return 'secondary';
+            }
+        }
+
+        function formatTimeAgo(date) {
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+
+            if (diffInSeconds < 60) return diffInSeconds + 's ago';
+            if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + 'm ago';
+            if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + 'h ago';
+            return Math.floor(diffInSeconds / 86400) + 'd ago';
+        }
+    </script>
 </body>
 </html>

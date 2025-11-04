@@ -2,8 +2,10 @@ package dashboard
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jaepetto/cron-exporter/pkg/config"
@@ -16,15 +18,19 @@ type Handler struct {
 	config       *config.DashboardConfig
 	jobStore     *model.JobStore
 	assetHandler *AssetHandler
+	broadcaster  *Broadcaster
 	logger       *logrus.Logger
 }
 
 // NewHandler creates a new dashboard handler
 func NewHandler(config *config.DashboardConfig, jobStore *model.JobStore, logger *logrus.Logger) *Handler {
+	broadcaster := NewBroadcaster(config, jobStore, logger)
+
 	return &Handler{
 		config:       config,
 		jobStore:     jobStore,
 		assetHandler: NewAssetHandler(),
+		broadcaster:  broadcaster,
 		logger:       logger,
 	}
 }
@@ -110,6 +116,9 @@ func (h *Handler) JobCreate(c *gin.Context) {
 		"job_name": job.Name,
 		"host":     job.Host,
 	}).Info("Job created via dashboard")
+
+	// Broadcast job created event
+	h.broadcaster.BroadcastJobCreated(job)
 
 	// Redirect to job detail page
 	c.Redirect(http.StatusFound, h.config.Path+"/jobs/"+strconv.Itoa(job.ID))
@@ -222,6 +231,9 @@ func (h *Handler) JobUpdate(c *gin.Context) {
 		"host":     job.Host,
 	}).Info("Job updated via dashboard")
 
+	// Broadcast job updated event
+	h.broadcaster.BroadcastJobUpdated(job)
+
 	// Redirect to job detail page
 	c.Redirect(http.StatusFound, h.config.Path+"/jobs/"+strconv.Itoa(job.ID))
 }
@@ -255,6 +267,9 @@ func (h *Handler) JobDelete(c *gin.Context) {
 		"job_name": job.Name,
 		"host":     job.Host,
 	}).Info("Job deleted via dashboard")
+
+	// Broadcast job deleted event
+	h.broadcaster.BroadcastJobDeleted(job.ID, job.Name, job.Host)
 
 	// Redirect to jobs list
 	c.Redirect(http.StatusFound, h.config.Path+"/jobs")
@@ -316,6 +331,16 @@ func (h *Handler) JobToggle(c *gin.Context) {
 		"new_status": job.Status,
 	}).Info("Job status toggled via dashboard")
 
+	// Broadcast job status change
+	isFailure := false
+	if job.AutomaticFailureThreshold > 0 {
+		timeSinceLastReport := time.Since(job.LastReportedAt)
+		if timeSinceLastReport > time.Duration(job.AutomaticFailureThreshold)*time.Second {
+			isFailure = true
+		}
+	}
+	h.broadcaster.BroadcastJobStatusChange(job, isFailure)
+
 	// Return to job detail page
 	c.Redirect(http.StatusFound, h.config.Path+"/jobs/"+strconv.Itoa(job.ID))
 }
@@ -328,6 +353,117 @@ func (h *Handler) JobSearch(c *gin.Context) {
 
 // EventStream handles server-sent events
 func (h *Handler) EventStream(c *gin.Context) {
-	// TODO: Implement server-sent events
-	c.String(http.StatusNotImplemented, "Event stream not implemented yet")
+	if !h.config.SSEEnabled {
+		c.String(http.StatusServiceUnavailable, "Server-sent events are disabled")
+		return
+	}
+
+	// Set SSE headers
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("Access-Control-Allow-Origin", "*")
+	c.Header("Access-Control-Allow-Headers", "Cache-Control")
+
+	// Create SSE client
+	client := h.broadcaster.AddClient(c)
+	if client == nil {
+		c.String(http.StatusServiceUnavailable, "Maximum SSE clients reached or SSE disabled")
+		return
+	}
+
+	h.logger.WithField("client_id", client.id).Info("Starting SSE connection")
+
+	// Serve the SSE connection using a simpler approach
+	h.serveSSEConnection(c, client)
+}
+
+// serveSSEConnection handles SSE connection for a client with proper flushing
+func (h *Handler) serveSSEConnection(c *gin.Context, client *SSEClient) {
+	defer h.broadcaster.RemoveClient(client.id)
+
+	// Send initial connection event
+	h.writeSSEMessage(c, "connection", map[string]interface{}{
+		"client_id": client.id,
+		"connected": true,
+	})
+
+	// Send current job status
+	h.sendCurrentJobStatus(c)
+
+	// Handle events from the broadcaster
+	for {
+		select {
+		case event, ok := <-client.events:
+			if !ok {
+				return
+			}
+
+			client.lastPing = time.Now()
+			if !h.writeSSEMessage(c, string(event.Type), event.Data) {
+				return
+			}
+
+		case <-client.ctx.Done():
+			h.logger.WithField("client_id", client.id).Info("SSE client context cancelled")
+			return
+
+		case <-c.Request.Context().Done():
+			h.logger.WithField("client_id", client.id).Info("SSE client request cancelled")
+			return
+		}
+	}
+}
+
+// writeSSEMessage writes an SSE message to the client
+func (h *Handler) writeSSEMessage(c *gin.Context, eventType string, data interface{}) bool {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to marshal SSE event data")
+		return false
+	}
+
+	// Write SSE event format
+	message := fmt.Sprintf("event: %s\ndata: %s\n\n", eventType, string(jsonData))
+
+	_, err = c.Writer.WriteString(message)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to write SSE message")
+		return false
+	}
+
+	// Note: Flushing is handled automatically by Gin for streaming responses
+
+	return true
+}
+
+// sendCurrentJobStatus sends the current status of all jobs to an SSE client
+func (h *Handler) sendCurrentJobStatus(c *gin.Context) {
+	jobs, err := h.jobStore.ListJobs(nil)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to list jobs for SSE client")
+		return
+	}
+
+	for _, job := range jobs {
+		// Check if job is in failure state based on threshold
+		isFailure := false
+		if job.AutomaticFailureThreshold > 0 {
+			timeSinceLastReport := time.Since(job.LastReportedAt)
+			if timeSinceLastReport > time.Duration(job.AutomaticFailureThreshold)*time.Second {
+				isFailure = true
+			}
+		}
+
+		if !h.writeSSEMessage(c, "job-status-change", map[string]interface{}{
+			"job_id":           job.ID,
+			"name":             job.Name,
+			"host":             job.Host,
+			"status":           job.Status,
+			"last_reported_at": job.LastReportedAt,
+			"is_failure":       isFailure,
+		}) {
+			return
+		}
+	}
 }

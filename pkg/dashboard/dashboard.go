@@ -53,3 +53,11 @@ func (d *Dashboard) Router() *gin.Engine {
 func (d *Dashboard) IsEnabled() bool {
 	return d.config.Enabled
 }
+
+// GetBroadcaster returns the broadcaster for external use
+func (d *Dashboard) GetBroadcaster() *Broadcaster {
+	if d.handler == nil {
+		return nil
+	}
+	return d.handler.broadcaster
+}

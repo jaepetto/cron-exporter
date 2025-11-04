@@ -33,3 +33,10 @@ dashboard:
   refresh_interval: 5
   page_size: 25
   auth_required: true
+  # Real-time updates configuration
+  sse_enabled: true
+  sse_timeout: 300
+  sse_heartbeat: 30
+  sse_max_clients: 50
+  polling_fallback: true
+  polling_interval: 5

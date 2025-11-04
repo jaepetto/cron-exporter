@@ -134,7 +134,7 @@
 
 ### Real-time Updates & Search
 
-- [ ] **T2.1**: Implement job status monitoring
+- [x] **T2.1**: Implement job status monitoring
   - Server-sent events for real-time job status updates
   - HTMX polling fallback for SSE-incompatible browsers
   - Auto-refresh configuration per dashboard settings
