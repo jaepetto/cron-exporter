@@ -1,0 +1,20 @@
+{
+  "servers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-f13b9463-1690-4f73-83fe-94e3be8ea17d"
+      }
+    }
+  }
+}
+// {
+//   "servers": {
+//     "context7": {
+//       "type": "stdio",
+//       "command": "npx",
+//       "args": ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-f13b9463-1690-4f73-83fe-94e3be8ea17d"]
+//     }
+//   }
+// }
