@@ -49,7 +49,13 @@ func (h *Handler) ServeAssets(c *gin.Context) {
 
 // JobsList displays the main jobs list page
 func (h *Handler) JobsList(c *gin.Context) {
-	jobs, err := h.jobStore.ListJobs(nil) // No label filters for now
+	// Use the search system with empty criteria to get all jobs with pagination
+	criteria := &model.JobSearchCriteria{
+		Page:     1,
+		PageSize: 25, // Default page size
+	}
+
+	result, err := h.jobStore.SearchJobs(criteria)
 	if err != nil {
 		h.logger.WithError(err).Error("Failed to list jobs")
 		c.String(http.StatusInternalServerError, "Failed to load jobs")
@@ -57,9 +63,12 @@ func (h *Handler) JobsList(c *gin.Context) {
 	}
 
 	data := gin.H{
-		"Title":  h.config.Title,
-		"Jobs":   jobs,
-		"Config": h.config,
+		"Title":        h.config.Title,
+		"Jobs":         result.Jobs,
+		"SearchResult": result,
+		"Config":       h.config,
+		"SearchQuery":  "",
+		"Criteria":     criteria,
 	}
 
 	c.HTML(http.StatusOK, "jobs.html", data)
@@ -345,10 +354,218 @@ func (h *Handler) JobToggle(c *gin.Context) {
 	c.Redirect(http.StatusFound, h.config.Path+"/jobs/"+strconv.Itoa(job.ID))
 }
 
-// JobSearch handles job search requests
+// JobSearch handles advanced job search requests with HTMX support
 func (h *Handler) JobSearch(c *gin.Context) {
-	// TODO: Implement job search
-	c.String(http.StatusNotImplemented, "Job search not implemented yet")
+	// Parse search criteria from query parameters
+	criteria := &model.JobSearchCriteria{
+		Query:  c.Query("q"),
+		Name:   c.Query("name"),
+		Host:   c.Query("host"),
+		Status: c.Query("status"),
+	}
+
+	// Parse pagination parameters
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			criteria.Page = page
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil && pageSize > 0 && pageSize <= 100 {
+			criteria.PageSize = pageSize
+		}
+	}
+
+	// Parse time-based filters
+	if beforeStr := c.Query("before"); beforeStr != "" {
+		if before, err := time.Parse(time.RFC3339, beforeStr); err == nil {
+			criteria.LastReportedBefore = &before
+		}
+	}
+	if afterStr := c.Query("after"); afterStr != "" {
+		if after, err := time.Parse(time.RFC3339, afterStr); err == nil {
+			criteria.LastReportedAfter = &after
+		}
+	}
+
+	// Parse label filters (JSON format: {"key1":"value1","key2":"value2"})
+	if labelsStr := c.Query("labels"); labelsStr != "" {
+		var labels map[string]string
+		if err := json.Unmarshal([]byte(labelsStr), &labels); err == nil {
+			criteria.Labels = labels
+		}
+	}
+
+	// Perform the search
+	result, err := h.jobStore.SearchJobs(criteria)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to search jobs")
+		c.String(http.StatusInternalServerError, "Failed to search jobs")
+		return
+	}
+
+	// Check if this is an HTMX request for partial updates
+	if c.GetHeader("HX-Request") == "true" {
+		// Return just the job list table body for HTMX partial updates
+		c.HTML(http.StatusOK, "job_list_partial.html", gin.H{
+			"Jobs":         result.Jobs,
+			"SearchResult": result,
+			"Config":       h.config,
+			"SearchQuery":  criteria.Query,
+		})
+		return
+	}
+
+	// For full page requests, return the complete jobs page with search results
+	data := gin.H{
+		"Title":        h.config.Title,
+		"Jobs":         result.Jobs,
+		"SearchResult": result,
+		"Config":       h.config,
+		"SearchQuery":  criteria.Query,
+		"Criteria":     criteria,
+	}
+
+	c.HTML(http.StatusOK, "jobs.html", data)
+}
+
+// JobSearchAPI handles job search API requests for HTMX
+func (h *Handler) JobSearchAPI(c *gin.Context) {
+	// Parse search criteria from query parameters
+	criteria := &model.JobSearchCriteria{
+		Query:  c.Query("q"),
+		Name:   c.Query("name"),
+		Host:   c.Query("host"),
+		Status: c.Query("status"),
+	}
+
+	// Parse pagination parameters
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			criteria.Page = page
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil && pageSize > 0 && pageSize <= 100 {
+			criteria.PageSize = pageSize
+		}
+	}
+
+	// Parse time-based filters
+	if beforeStr := c.Query("before"); beforeStr != "" {
+		if before, err := time.Parse(time.RFC3339, beforeStr); err == nil {
+			criteria.LastReportedBefore = &before
+		}
+	}
+	if afterStr := c.Query("after"); afterStr != "" {
+		if after, err := time.Parse(time.RFC3339, afterStr); err == nil {
+			criteria.LastReportedAfter = &after
+		}
+	}
+
+	// Parse label filters
+	if labelsStr := c.Query("labels"); labelsStr != "" {
+		var labels map[string]string
+		if err := json.Unmarshal([]byte(labelsStr), &labels); err == nil {
+			criteria.Labels = labels
+		}
+	}
+
+	// Perform the search
+	result, err := h.jobStore.SearchJobs(criteria)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to search jobs")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search jobs"})
+		return
+	}
+
+	// Check if this is a request for HTML partial update (HTMX)
+	if c.GetHeader("HX-Request") == "true" {
+		// Return HTML partial for table body update
+		c.HTML(http.StatusOK, "job_list_partial.html", gin.H{
+			"Jobs":         result.Jobs,
+			"SearchResult": result,
+			"Config":       h.config,
+			"SearchQuery":  criteria.Query,
+			"Criteria":     criteria,
+		})
+		return
+	}
+
+	// Return JSON for API clients
+	c.JSON(http.StatusOK, result)
+}
+
+// JobSearchWithPagination handles job search with pagination UI updates
+func (h *Handler) JobSearchWithPagination(c *gin.Context) {
+	// Parse search criteria from query parameters (same as JobSearchAPI)
+	criteria := &model.JobSearchCriteria{
+		Query:  c.Query("q"),
+		Name:   c.Query("name"),
+		Host:   c.Query("host"),
+		Status: c.Query("status"),
+	}
+
+	// Parse pagination parameters
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			criteria.Page = page
+		}
+	}
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil && pageSize > 0 && pageSize <= 100 {
+			criteria.PageSize = pageSize
+		}
+	}
+
+	// Parse time-based filters
+	if beforeStr := c.Query("before"); beforeStr != "" {
+		if before, err := time.Parse(time.RFC3339, beforeStr); err == nil {
+			criteria.LastReportedBefore = &before
+		}
+	}
+	if afterStr := c.Query("after"); afterStr != "" {
+		if after, err := time.Parse(time.RFC3339, afterStr); err == nil {
+			criteria.LastReportedAfter = &after
+		}
+	}
+
+	// Parse label filters
+	if labelsStr := c.Query("labels"); labelsStr != "" {
+		var labels map[string]string
+		if err := json.Unmarshal([]byte(labelsStr), &labels); err == nil {
+			criteria.Labels = labels
+		}
+	}
+
+	// Perform the search
+	result, err := h.jobStore.SearchJobs(criteria)
+	if err != nil {
+		h.logger.WithError(err).Error("Failed to search jobs")
+		c.String(http.StatusInternalServerError, "Failed to search jobs")
+		return
+	}
+
+	// Return both table body and pagination for HTMX multi-target updates
+	data := gin.H{
+		"Jobs":         result.Jobs,
+		"SearchResult": result,
+		"Config":       h.config,
+		"SearchQuery":  criteria.Query,
+		"Criteria":     criteria,
+	}
+
+	// Check what kind of update is requested
+	target := c.Query("target")
+	switch target {
+	case "table":
+		c.HTML(http.StatusOK, "job_list_partial.html", data)
+	case "pagination":
+		c.HTML(http.StatusOK, "pagination.html", data)
+	default:
+		// Return combined update with multiple targets
+		c.HTML(http.StatusOK, "search_results.html", data)
+	}
 }
 
 // EventStream handles server-sent events

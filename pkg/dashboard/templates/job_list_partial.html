@@ -1,0 +1,38 @@
+{{/* Partial template for HTMX job list updates */}}
+{{if .Jobs}}
+{{range .Jobs}}
+<tr data-job-id="{{.ID}}" id="job-row-{{.ID}}" class="{{if $.SearchQuery}}table-row-highlighted{{end}}">
+    <td>
+        <strong>{{highlightText .Name $.SearchQuery}}</strong>
+        {{if .Labels}}
+        <div class="job-labels">
+            {{range $key, $value := .Labels}}
+            <span class="badge badge-info">{{$key}}:{{highlightText $value $.SearchQuery}}</span>
+            {{end}}
+        </div>
+        {{end}}
+    </td>
+    <td>{{highlightText .Host $.SearchQuery}}</td>
+    <td class="job-status">
+        <span class="badge badge-{{statusBadge .Status}}">{{.Status}}</span>
+    </td>
+    <td class="job-last-reported">{{timeAgo .LastReportedAt}}</td>
+    <td>
+        <a href="{{$.Config.Path}}/jobs/{{.ID}}" class="btn btn-sm btn-primary">View</a>
+        <a href="{{$.Config.Path}}/jobs/{{.ID}}/edit" class="btn btn-sm btn-secondary">Edit</a>
+    </td>
+</tr>
+{{end}}
+{{else}}
+<tr>
+    <td colspan="5" class="text-center p-3">
+        <p class="text-muted">
+            {{if $.SearchQuery}}
+                No jobs found matching "{{$.SearchQuery}}". <a href="{{$.Config.Path}}/jobs">Clear search</a> or <a href="{{$.Config.Path}}/jobs/new">create a new job</a>.
+            {{else}}
+                No jobs found. <a href="{{$.Config.Path}}/jobs/new">Create your first job</a>.
+            {{end}}
+        </p>
+    </td>
+</tr>
+{{end}}

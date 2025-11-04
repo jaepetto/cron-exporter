@@ -140,7 +140,7 @@
   - Auto-refresh configuration per dashboard settings
   - Broadcast status changes to all connected clients
 
-- [ ] **T2.2**: Advanced search and filtering
+- [x] **T2.2**: Advanced search and filtering
   - Multi-criteria search (host, name, status, labels)
   - Real-time search with HTMX partial updates
   - Search result highlighting and pagination

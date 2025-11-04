@@ -35,6 +35,8 @@ func SetupRoutes(router *gin.Engine, config *config.DashboardConfig, handler *Ha
 	// HTMX endpoints for dynamic updates (protected)
 	protectedRoutes.GET("/api/jobs", handler.JobsListAPI)
 	protectedRoutes.GET("/api/jobs/:id/status", handler.JobStatusAPI)
+	protectedRoutes.GET("/api/jobs/search", handler.JobSearchAPI)
+	protectedRoutes.GET("/api/jobs/search-paginated", handler.JobSearchWithPagination)
 	protectedRoutes.POST("/jobs/:id/toggle", handler.JobToggle)
 	protectedRoutes.GET("/jobs/search", handler.JobSearch)
 

@@ -3,11 +3,15 @@ package dashboard
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io"
+	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/jaepetto/cron-exporter/pkg/config"
+	"github.com/jaepetto/cron-exporter/pkg/model"
 )
 
 //go:embed templates/*
@@ -124,6 +128,43 @@ func LoadTemplates() *template.Template {
 			}
 			return string(bytes)
 		},
+		"highlightText": func(text, query string) template.HTML {
+			if query == "" {
+				return template.HTML(template.HTMLEscapeString(text))
+			}
+			return highlightTextHelper(text, query)
+		},
+		"buildSearchQuery": func(criteria interface{}, page int) string {
+			return buildSearchQueryHelper(criteria, page)
+		},
+		"sequence": func(start, end int) []int {
+			seq := make([]int, 0, end-start+1)
+			for i := start; i <= end; i++ {
+				seq = append(seq, i)
+			}
+			return seq
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"min": func(a, b int) int {
+			if a < b {
+				return a
+			}
+			return b
+		},
+		"max": func(a, b int) int {
+			if a > b {
+				return a
+			}
+			return b
+		},
+		"mul": func(a, b int) int {
+			return a * b
+		},
+		"eq": func(a, b interface{}) bool {
+			return a == b
+		},
 	}
 
 	// Create template with functions
@@ -172,4 +213,53 @@ func formatInt(i int64) string {
 		return string(rune('0' + i))
 	}
 	return string(rune('0'+i/10)) + string(rune('0'+i%10))
+}
+
+// highlightTextHelper highlights search terms in text
+func highlightTextHelper(text, query string) template.HTML {
+	if query == "" {
+		return template.HTML(template.HTMLEscapeString(text))
+	}
+
+	// Escape the text first
+	escaped := template.HTMLEscapeString(text)
+
+	// Create case-insensitive regex for the query
+	regex, err := regexp.Compile("(?i)" + regexp.QuoteMeta(query))
+	if err != nil {
+		return template.HTML(escaped)
+	}
+
+	// Replace matches with highlighted version
+	highlighted := regex.ReplaceAllStringFunc(escaped, func(match string) string {
+		return `<mark class="bg-warning">` + match + `</mark>`
+	})
+
+	return template.HTML(highlighted)
+}
+
+// buildSearchQueryHelper builds URL query string for pagination links
+func buildSearchQueryHelper(criteria interface{}, page int) string {
+	params := url.Values{}
+	params.Set("page", fmt.Sprintf("%d", page))
+
+	if crit, ok := criteria.(*model.JobSearchCriteria); ok && crit != nil {
+		if crit.Query != "" {
+			params.Set("q", crit.Query)
+		}
+		if crit.Name != "" {
+			params.Set("name", crit.Name)
+		}
+		if crit.Host != "" {
+			params.Set("host", crit.Host)
+		}
+		if crit.Status != "" {
+			params.Set("status", crit.Status)
+		}
+		if crit.PageSize > 0 {
+			params.Set("page_size", fmt.Sprintf("%d", crit.PageSize))
+		}
+	}
+
+	return params.Encode()
 }

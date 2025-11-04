@@ -1,0 +1,8 @@
+{{/* Combined search results template for HTMX multi-target updates */}}
+<div id="jobs-table-body" hx-swap-oob="innerHTML">
+    {{template "job_list_partial.html" .}}
+</div>
+
+<div id="pagination" hx-swap-oob="innerHTML">
+    {{template "pagination.html" .}}
+</div>

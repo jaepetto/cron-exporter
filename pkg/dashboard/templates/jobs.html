@@ -24,12 +24,80 @@
             </div>
         </div>
 
+        <!-- Advanced Search Form -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <strong>Search & Filter Jobs</strong>
+                <button class="btn btn-sm btn-outline-secondary float-right" type="button" data-toggle="collapse" data-target="#advanced-search" aria-expanded="false">
+                    Advanced Filters
+                </button>
+            </div>
+            <div class="card-body">
+                <form hx-get="{{.Config.Path}}/api/jobs/search-paginated"
+                      hx-trigger="input changed delay:500ms, submit"
+                      hx-indicator="#search-spinner">
+
+                    <!-- Basic Search -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" name="q" placeholder="Search jobs by name, host, or labels..."
+                                   value="{{.SearchQuery}}" autocomplete="off">
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary">Search</button>
+                            <a href="{{.Config.Path}}/jobs" class="btn btn-outline-secondary">Clear</a>
+                            <span id="search-spinner" class="htmx-indicator spinner-border spinner-border-sm ml-2" role="status"></span>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Filters (Collapsible) -->
+                    <div class="collapse {{if .Criteria}}show{{end}}" id="advanced-search">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="name-filter">Job Name</label>
+                                <input type="text" class="form-control" name="name" id="name-filter"
+                                       placeholder="Filter by name" value="{{if .Criteria}}{{.Criteria.Name}}{{end}}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="host-filter">Host</label>
+                                <input type="text" class="form-control" name="host" id="host-filter"
+                                       placeholder="Filter by host" value="{{if .Criteria}}{{.Criteria.Host}}{{end}}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="status-filter">Status</label>
+                                <select class="form-control" name="status" id="status-filter">
+                                    <option value="">All Statuses</option>
+                                    <option value="active" {{if and .Criteria (eq .Criteria.Status "active")}}selected{{end}}>Active</option>
+                                    <option value="maintenance" {{if and .Criteria (eq .Criteria.Status "maintenance")}}selected{{end}}>Maintenance</option>
+                                    <option value="paused" {{if and .Criteria (eq .Criteria.Status "paused")}}selected{{end}}>Paused</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="page-size-filter">Page Size</label>
+                                <select class="form-control" name="page_size" id="page-size-filter">
+                                    <option value="10" {{if and .SearchResult (eq .SearchResult.PageSize 10)}}selected{{end}}>10</option>
+                                    <option value="25" {{if and .SearchResult (eq .SearchResult.PageSize 25)}}selected{{end}}>25</option>
+                                    <option value="50" {{if and .SearchResult (eq .SearchResult.PageSize 50)}}selected{{end}}>50</option>
+                                    <option value="100" {{if and .SearchResult (eq .SearchResult.PageSize 100)}}selected{{end}}>100</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <strong>Job List</strong>
+                {{if .SearchResult}}
+                <span class="text-muted float-right">
+                    {{.SearchResult.TotalCount}} total jobs
+                    {{if .SearchQuery}}matching "{{.SearchQuery}}"{{end}}
+                </span>
+                {{end}}
             </div>
             <div class="card-body">
-                {{if .Jobs}}
                 <div class="table-responsive">
                     <table class="table" id="jobs-table"
                            hx-ext="sse"
@@ -37,44 +105,26 @@
                            sse-swap="job-status-change:update-job-row"
                            sse-swap="job-created:add-job-row"
                            sse-swap="job-updated:update-job-row"
-                           sse-swap="job-deleted:remove-job-row"
-                           hx-trigger="sse:connection-lost"
-                           hx-get="{{.Config.Path}}/api/jobs"
-                           hx-swap="innerHTML"
-                           hx-select="tbody"
-                           hx-target="tbody">
+                           sse-swap="job-deleted:remove-job-row">
                         <thead>
                             <tr>
-                                <th>Name</th>
+                                <th>Name & Labels</th>
                                 <th>Host</th>
                                 <th>Status</th>
                                 <th>Last Reported</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            {{range .Jobs}}
-                            <tr data-job-id="{{.ID}}" id="job-row-{{.ID}}">
-                                <td><strong>{{.Name}}</strong></td>
-                                <td>{{.Host}}</td>
-                                <td class="job-status">
-                                    <span class="badge badge-{{statusBadge .Status}}">{{.Status}}</span>
-                                </td>
-                                <td class="job-last-reported">{{timeAgo .LastReportedAt}}</td>
-                                <td>
-                                    <a href="{{$.Config.Path}}/jobs/{{.ID}}" class="btn btn-sm btn-primary">View</a>
-                                    <a href="{{$.Config.Path}}/jobs/{{.ID}}/edit" class="btn btn-sm btn-secondary">Edit</a>
-                                </td>
-                            </tr>
-                            {{end}}
+                        <tbody id="jobs-table-body">
+                            {{template "job_list_partial.html" .}}
                         </tbody>
                     </table>
                 </div>
-                {{else}}
-                <div class="text-center p-3">
-                    <p class="text-muted">No jobs found. <a href="{{.Config.Path}}/jobs/new">Create your first job</a>.</p>
+
+                <!-- Pagination -->
+                <div id="pagination">
+                    {{template "pagination.html" .}}
                 </div>
-                {{end}}
             </div>
         </div>
     </div>

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -33,6 +34,40 @@ type JobResult struct {
 	Duration  int               `json:"duration,omitempty"` // Execution duration in seconds
 	Output    string            `json:"output,omitempty"`   // Optional execution output
 	Timestamp time.Time         `json:"timestamp"`
+}
+
+// JobSearchCriteria represents advanced search and filtering options for jobs
+type JobSearchCriteria struct {
+	// Text search fields
+	Query string `json:"query,omitempty"` // Search across name, host, and labels
+
+	// Specific field filters
+	Name   string `json:"name,omitempty"`   // Filter by job name (partial match)
+	Host   string `json:"host,omitempty"`   // Filter by host (partial match)
+	Status string `json:"status,omitempty"` // Filter by job status (exact match)
+
+	// Label filters
+	Labels map[string]string `json:"labels,omitempty"` // Filter by labels (exact match)
+
+	// Time-based filters
+	LastReportedBefore *time.Time `json:"last_reported_before,omitempty"` // Jobs reported before this time
+	LastReportedAfter  *time.Time `json:"last_reported_after,omitempty"`  // Jobs reported after this time
+
+	// Pagination
+	Page     int `json:"page,omitempty"`      // Page number (1-based)
+	PageSize int `json:"page_size,omitempty"` // Number of items per page
+}
+
+// JobSearchResult represents paginated search results
+type JobSearchResult struct {
+	Jobs        []*Job `json:"jobs"`
+	TotalCount  int    `json:"total_count"`
+	Page        int    `json:"page"`
+	PageSize    int    `json:"page_size"`
+	TotalPages  int    `json:"total_pages"`
+	HasNext     bool   `json:"has_next"`
+	HasPrevious bool   `json:"has_previous"`
+	SearchQuery string `json:"search_query,omitempty"`
 }
 
 // JobStore provides database operations for jobs
@@ -203,6 +238,163 @@ func (s *JobStore) ListJobs(labelFilters map[string]string) ([]*Job, error) {
 	}
 
 	return jobs, nil
+}
+
+// SearchJobs performs advanced search with filtering and pagination
+func (s *JobStore) SearchJobs(criteria *JobSearchCriteria) (*JobSearchResult, error) {
+	if criteria == nil {
+		criteria = &JobSearchCriteria{}
+	}
+
+	// Set default pagination values
+	if criteria.Page <= 0 {
+		criteria.Page = 1
+	}
+	if criteria.PageSize <= 0 {
+		criteria.PageSize = 25 // Default page size
+	}
+
+	// Build the WHERE clause dynamically
+	var whereConditions []string
+	var args []interface{}
+	argIndex := 0
+
+	// Handle text query search across name, host, and labels
+	if criteria.Query != "" {
+		// Search in name, host, and labels JSON
+		whereConditions = append(whereConditions,
+			"(name LIKE ? OR host LIKE ? OR labels LIKE ?)")
+		searchTerm := "%" + criteria.Query + "%"
+		args = append(args, searchTerm, searchTerm, searchTerm)
+		argIndex += 3
+	}
+
+	// Handle specific field filters
+	if criteria.Name != "" {
+		whereConditions = append(whereConditions, "name LIKE ?")
+		args = append(args, "%"+criteria.Name+"%")
+		argIndex++
+	}
+
+	if criteria.Host != "" {
+		whereConditions = append(whereConditions, "host LIKE ?")
+		args = append(args, "%"+criteria.Host+"%")
+		argIndex++
+	}
+
+	if criteria.Status != "" {
+		whereConditions = append(whereConditions, "status = ?")
+		args = append(args, criteria.Status)
+		argIndex++
+	}
+
+	// Handle time-based filters
+	if criteria.LastReportedBefore != nil {
+		whereConditions = append(whereConditions, "last_reported_at < ?")
+		args = append(args, criteria.LastReportedBefore.UTC())
+		argIndex++
+	}
+
+	if criteria.LastReportedAfter != nil {
+		whereConditions = append(whereConditions, "last_reported_at > ?")
+		args = append(args, criteria.LastReportedAfter.UTC())
+		argIndex++
+	}
+
+	// Build the complete WHERE clause
+	whereClause := ""
+	if len(whereConditions) > 0 {
+		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
+	}
+
+	// First, get the total count for pagination
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM jobs
+		%s
+	`, whereClause)
+
+	var totalCount int
+	err := s.db.QueryRow(countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count jobs: %w", err)
+	}
+
+	// Calculate pagination values
+	totalPages := (totalCount + criteria.PageSize - 1) / criteria.PageSize
+	offset := (criteria.Page - 1) * criteria.PageSize
+
+	// Build the main query with pagination
+	query := fmt.Sprintf(`
+		SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+		FROM jobs
+		%s
+		ORDER BY id
+		LIMIT ? OFFSET ?
+	`, whereClause)
+
+	// Add pagination parameters
+	paginationArgs := append(args, criteria.PageSize, offset)
+
+	rows, err := s.db.Query(query, paginationArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []*Job
+	for rows.Next() {
+		job := &Job{}
+		var labelsJSON string
+		var apiKeyNull sql.NullString
+
+		err := rows.Scan(&job.ID, &job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan job row: %w", err)
+		}
+
+		if apiKeyNull.Valid {
+			job.ApiKey = apiKeyNull.String
+		}
+
+		if err := json.Unmarshal([]byte(labelsJSON), &job.Labels); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal labels: %w", err)
+		}
+
+		// Apply label filters if provided (post-query filtering for complex JSON matching)
+		if len(criteria.Labels) > 0 {
+			match := true
+			for key, value := range criteria.Labels {
+				if job.Labels[key] != value {
+					match = false
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+
+		jobs = append(jobs, job)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating job rows: %w", err)
+	}
+
+	// Build the result
+	result := &JobSearchResult{
+		Jobs:        jobs,
+		TotalCount:  totalCount,
+		Page:        criteria.Page,
+		PageSize:    criteria.PageSize,
+		TotalPages:  totalPages,
+		HasNext:     criteria.Page < totalPages,
+		HasPrevious: criteria.Page > 1,
+		SearchQuery: criteria.Query,
+	}
+
+	return result, nil
 }
 
 // UpdateJobByID updates an existing job by ID

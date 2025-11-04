@@ -1,0 +1,101 @@
+{{/* Pagination controls for job search results */}}
+{{if .SearchResult}}
+{{$result := .SearchResult}}
+{{if gt $result.TotalPages 1}}
+<nav aria-label="Job search pagination">
+    <ul class="pagination justify-content-center">
+        {{/* Previous page button */}}
+        {{if $result.HasPrevious}}
+        <li class="page-item">
+            <a class="page-link" href="#"
+               hx-get="{{$.Config.Path}}/api/jobs/search-paginated?{{buildSearchQuery $.Criteria (add $result.Page -1)}}"
+               hx-indicator="#search-spinner">
+                Previous
+            </a>
+        </li>
+        {{else}}
+        <li class="page-item disabled">
+            <span class="page-link">Previous</span>
+        </li>
+        {{end}}
+
+        {{/* Page number buttons */}}
+        {{$currentPage := $result.Page}}
+        {{$totalPages := $result.TotalPages}}
+        {{$startPage := max 1 (add $currentPage -2)}}
+        {{$endPage := min $totalPages (add $currentPage 2)}}
+
+        {{/* Show first page if not in range */}}
+        {{if gt $startPage 1}}
+        <li class="page-item">
+            <a class="page-link" href="#"
+               hx-get="{{$.Config.Path}}/api/jobs/search-paginated?{{buildSearchQuery $.Criteria 1}}"
+               hx-indicator="#search-spinner">
+                1
+            </a>
+        </li>
+        {{if gt $startPage 2}}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {{end}}
+        {{end}}
+
+        {{/* Page numbers in range */}}
+        {{range $page := sequence $startPage $endPage}}
+        {{if eq $page $currentPage}}
+        <li class="page-item active">
+            <span class="page-link">{{$page}}</span>
+        </li>
+        {{else}}
+        <li class="page-item">
+            <a class="page-link" href="#"
+               hx-get="{{$.Config.Path}}/api/jobs/search-paginated?{{buildSearchQuery $.Criteria $page}}"
+               hx-indicator="#search-spinner">
+                {{$page}}
+            </a>
+        </li>
+        {{end}}
+        {{end}}
+
+        {{/* Show last page if not in range */}}
+        {{if lt $endPage $totalPages}}
+        {{if lt $endPage (add $totalPages -1)}}
+        <li class="page-item disabled">
+            <span class="page-link">...</span>
+        </li>
+        {{end}}
+        <li class="page-item">
+            <a class="page-link" href="#"
+               hx-get="{{$.Config.Path}}/api/jobs/search-paginated?{{buildSearchQuery $.Criteria $totalPages}}"
+               hx-indicator="#search-spinner">
+                {{$totalPages}}
+            </a>
+        </li>
+        {{end}}
+
+        {{/* Next page button */}}
+        {{if $result.HasNext}}
+        <li class="page-item">
+            <a class="page-link" href="#"
+               hx-get="{{$.Config.Path}}/api/jobs/search-paginated?{{buildSearchQuery $.Criteria (add $result.Page 1)}}"
+               hx-indicator="#search-spinner">
+                Next
+            </a>
+        </li>
+        {{else}}
+        <li class="page-item disabled">
+            <span class="page-link">Next</span>
+        </li>
+        {{end}}
+    </ul>
+</nav>
+
+<div class="text-center text-muted mt-2">
+    Showing {{add (mul (add $result.Page -1) $result.PageSize) 1}} to
+    {{min (mul $result.Page $result.PageSize) $result.TotalCount}} of
+    {{$result.TotalCount}} jobs
+    {{if $.SearchQuery}}matching "{{$.SearchQuery}}"{{end}}
+</div>
+{{end}}
+{{end}}
