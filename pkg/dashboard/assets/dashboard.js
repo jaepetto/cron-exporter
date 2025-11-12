@@ -20,19 +20,28 @@ function stopAutoRefresh() {
     }
 }
 
-// Refresh job list via HTMX-style fetch
+// Refresh job list via HTMX-style fetch using HTML partial
 function refreshJobList() {
-    fetch('/dashboard/api/jobs')
-        .then(response => response.json())
-        .then(data => {
-            updateJobTable(data.jobs);
+    const dashboardPath = document.getElementById('dashboard-path')?.value || '/dashboard';
+    fetch(`${dashboardPath}/api/jobs/search-paginated?target=table`)
+        .then(response => response.text())
+        .then(html => {
+            updateJobTableHTML(html);
         })
         .catch(error => {
             console.error('Error refreshing job list:', error);
         });
 }
 
-// Update job table with new data
+// Update job table with new HTML from partial template
+function updateJobTableHTML(html) {
+    const tbody = document.querySelector('#jobs-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = html;
+}
+
+// Legacy function for JSON updates (kept for compatibility)
 function updateJobTable(jobs) {
     const tbody = document.querySelector('#jobs-table tbody');
     if (!tbody) return;

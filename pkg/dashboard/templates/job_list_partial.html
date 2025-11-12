@@ -1,22 +1,33 @@
 {{/* Partial template for HTMX job list updates */}}
 {{if .Jobs}}
 {{range .Jobs}}
-<tr data-job-id="{{.ID}}" id="job-row-{{.ID}}" class="{{if $.SearchQuery}}table-row-highlighted{{end}}">
+<tr data-job-id="{{.ID}}" id="job-row-{{.ID}}" class="job-row-{{deadlineStatus .}} {{if $.SearchQuery}}table-row-highlighted{{end}}">
     <td>
-        <strong>{{highlightText .Name $.SearchQuery}}</strong>
-        {{if .Labels}}
-        <div class="job-labels">
-            {{range $key, $value := .Labels}}
-            <span class="badge badge-info">{{$key}}:{{highlightText $value $.SearchQuery}}</span>
-            {{end}}
+        <div class="d-flex align-items-center">
+            <span class="deadline-status-icon {{deadlineStatus .}}" title="{{deadlineStatusText .}}"></span>
+            <div>
+                <strong>{{highlightText .Name $.SearchQuery}}</strong>
+                {{if .Labels}}
+                <div class="job-labels">
+                    {{range $key, $value := .Labels}}
+                    <span class="badge badge-info">{{$key}}:{{highlightText $value $.SearchQuery}}</span>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
         </div>
-        {{end}}
     </td>
     <td>{{highlightText .Host $.SearchQuery}}</td>
     <td class="job-status">
         <span class="badge badge-{{statusBadge .Status}}">{{.Status}}</span>
+        <br>
+        <small class="text-muted">{{deadlineStatusText .}}</small>
     </td>
-    <td class="job-last-reported">{{timeAgo .LastReportedAt}}</td>
+    <td class="job-last-reported">
+        {{timeAgo .LastReportedAt}}
+        <br>
+        <small class="text-muted">Threshold: {{.AutomaticFailureThreshold}}s</small>
+    </td>
     <td>
         <a href="{{$.Config.Path}}/jobs/{{.ID}}" class="btn btn-sm btn-primary">View</a>
         <a href="{{$.Config.Path}}/jobs/{{.ID}}/edit" class="btn btn-sm btn-secondary">Edit</a>

@@ -130,6 +130,7 @@
     </div>
 
     <script src="{{.Config.Path}}/assets/dashboard.js"></script>
+    <input type="hidden" id="dashboard-path" value="{{.Config.Path}}">
     <input type="hidden" id="refresh-interval" value="{{.Config.RefreshInterval}}">
     <input type="hidden" id="sse-enabled" value="{{.Config.SSEEnabled}}">
     <input type="hidden" id="polling-fallback" value="{{.Config.PollingFallback}}">
@@ -146,7 +147,7 @@
             if (pollingFallback && (!sseEnabled || !window.EventSource)) {
                 console.log('Using polling fallback for real-time updates');
                 setInterval(function() {
-                    htmx.trigger('#jobs-table tbody', 'htmx:trigger');
+                    refreshJobList();
                 }, pollingInterval * 1000);
             } else if (sseEnabled) {
                 console.log('Using Server-Sent Events for real-time updates');
@@ -157,7 +158,7 @@
                 console.warn('SSE connection error, falling back to polling if enabled');
                 if (pollingFallback) {
                     setInterval(function() {
-                        htmx.trigger('#jobs-table tbody', 'htmx:trigger');
+                        refreshJobList();
                     }, pollingInterval * 1000);
                 }
             });

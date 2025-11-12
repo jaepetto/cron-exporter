@@ -54,6 +54,69 @@ func NewTemplateManager(config *config.DashboardConfig) *TemplateManager {
 				return "danger"
 			}
 		},
+		"deadlineStatus": func(job interface{}) string {
+			// Convert interface{} to Job struct
+			jobData, ok := job.(*model.Job)
+			if !ok {
+				return "unknown"
+			}
+
+			// Jobs in maintenance or paused status
+			if jobData.Status == "maintenance" || jobData.Status == "paused" {
+				return "inactive"
+			}
+
+			now := time.Now().UTC()
+			timeSinceLastReport := now.Sub(jobData.LastReportedAt)
+			thresholdDuration := time.Duration(jobData.AutomaticFailureThreshold) * time.Second
+
+			// Missed deadline
+			if timeSinceLastReport > thresholdDuration {
+				return "danger"
+			}
+
+			// Approaching deadline (80% of threshold)
+			warningThreshold := time.Duration(float64(jobData.AutomaticFailureThreshold)*0.8) * time.Second
+			if timeSinceLastReport > warningThreshold {
+				return "warning"
+			}
+
+			// On time
+			return "success"
+		},
+		"deadlineStatusText": func(job interface{}) string {
+			// Convert interface{} to Job struct
+			jobData, ok := job.(*model.Job)
+			if !ok {
+				return "Unknown"
+			}
+
+			// Jobs in maintenance or paused status
+			if jobData.Status == "maintenance" {
+				return "Maintenance"
+			}
+			if jobData.Status == "paused" {
+				return "Paused"
+			}
+
+			now := time.Now().UTC()
+			timeSinceLastReport := now.Sub(jobData.LastReportedAt)
+			thresholdDuration := time.Duration(jobData.AutomaticFailureThreshold) * time.Second
+
+			// Missed deadline
+			if timeSinceLastReport > thresholdDuration {
+				return "Deadline Missed"
+			}
+
+			// Approaching deadline (80% of threshold)
+			warningThreshold := time.Duration(float64(jobData.AutomaticFailureThreshold)*0.8) * time.Second
+			if timeSinceLastReport > warningThreshold {
+				return "Deadline Approaching"
+			}
+
+			// On time
+			return "On Time"
+		},
 		"truncate": func(s string, length int) string {
 			if len(s) <= length {
 				return s
@@ -114,6 +177,69 @@ func LoadTemplates() *template.Template {
 			default:
 				return "danger"
 			}
+		},
+		"deadlineStatus": func(job interface{}) string {
+			// Convert interface{} to Job struct
+			jobData, ok := job.(*model.Job)
+			if !ok {
+				return "unknown"
+			}
+
+			// Jobs in maintenance or paused status
+			if jobData.Status == "maintenance" || jobData.Status == "paused" {
+				return "inactive"
+			}
+
+			now := time.Now().UTC()
+			timeSinceLastReport := now.Sub(jobData.LastReportedAt)
+			thresholdDuration := time.Duration(jobData.AutomaticFailureThreshold) * time.Second
+
+			// Missed deadline
+			if timeSinceLastReport > thresholdDuration {
+				return "danger"
+			}
+
+			// Approaching deadline (80% of threshold)
+			warningThreshold := time.Duration(float64(jobData.AutomaticFailureThreshold)*0.8) * time.Second
+			if timeSinceLastReport > warningThreshold {
+				return "warning"
+			}
+
+			// On time
+			return "success"
+		},
+		"deadlineStatusText": func(job interface{}) string {
+			// Convert interface{} to Job struct
+			jobData, ok := job.(*model.Job)
+			if !ok {
+				return "Unknown"
+			}
+
+			// Jobs in maintenance or paused status
+			if jobData.Status == "maintenance" {
+				return "Maintenance"
+			}
+			if jobData.Status == "paused" {
+				return "Paused"
+			}
+
+			now := time.Now().UTC()
+			timeSinceLastReport := now.Sub(jobData.LastReportedAt)
+			thresholdDuration := time.Duration(jobData.AutomaticFailureThreshold) * time.Second
+
+			// Missed deadline
+			if timeSinceLastReport > thresholdDuration {
+				return "Deadline Missed"
+			}
+
+			// Approaching deadline (80% of threshold)
+			warningThreshold := time.Duration(float64(jobData.AutomaticFailureThreshold)*0.8) * time.Second
+			if timeSinceLastReport > warningThreshold {
+				return "Deadline Approaching"
+			}
+
+			// On time
+			return "On Time"
 		},
 		"truncate": func(s string, length int) string {
 			if len(s) <= length {

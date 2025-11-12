@@ -135,6 +135,87 @@ body {
   background-color: var(--bs-secondary);
 }
 
+.badge-info {
+  color: #000;
+  background-color: var(--bs-info);
+}
+
+/* Deadline status indicators */
+.badge-inactive {
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border: 1px solid #6c757d;
+}
+
+/* Job row deadline status backgrounds */
+.job-row-success {
+  background-color: rgba(25, 135, 84, 0.1) !important;
+  border-left: 4px solid var(--bs-success);
+}
+
+.job-row-warning {
+  background-color: rgba(255, 193, 7, 0.1) !important;
+  border-left: 4px solid var(--bs-warning);
+}
+
+.job-row-danger {
+  background-color: rgba(220, 53, 69, 0.1) !important;
+  border-left: 4px solid var(--bs-danger);
+}
+
+.job-row-inactive {
+  background-color: rgba(108, 117, 125, 0.05) !important;
+  border-left: 4px solid var(--bs-secondary);
+  opacity: 0.8;
+}
+
+/* Deadline status icons */
+.deadline-status-icon {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.deadline-status-icon.success {
+  background-color: var(--bs-success);
+}
+
+.deadline-status-icon.warning {
+  background-color: var(--bs-warning);
+}
+
+.deadline-status-icon.danger {
+  background-color: var(--bs-danger);
+}
+
+.deadline-status-icon.inactive {
+  background-color: var(--bs-secondary);
+}
+
+/* Additional utility classes for dashboard */
+.d-flex {
+  display: flex !important;
+}
+
+.align-items-center {
+  align-items: center !important;
+}
+
+.text-muted {
+  color: #6c757d !important;
+}
+
+/* Job status column enhancements */
+.job-status small {
+  font-size: 0.75rem;
+}
+
+.job-last-reported small {
+  font-size: 0.75rem;
+}
+
 .form-control {
   display: block;
   width: 100%;

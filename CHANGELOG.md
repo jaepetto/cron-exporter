@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced security with job-specific result submission validation
 - API key validation utility functions with format checking
 - Masked API key display in CLI for security (show full keys only in job details)
+- **Web Dashboard deadline status indicators** - Visual job health monitoring with real-time status
+  - Color-coded visual indicators: 🟢 On time, 🟡 Approaching deadline, 🔴 Missed deadline, ⚫ Inactive
+  - Status calculation matches Prometheus metrics system logic (AutomaticFailureThreshold based)
+  - Real-time updates via HTML partial templates to maintain visual consistency
+  - Enhanced dashboard CSS with colored row backgrounds and status icons
+  - Improved job list template with deadline status and threshold information
+  - Fixed background refresh mechanism to preserve deadline indicators
 - Initial implementation of Cron Metrics Collector & Exporter
 - REST API for job CRUD operations and result submissions
 - **Enhanced Prometheus metrics system** with proper status labels

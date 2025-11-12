@@ -15,6 +15,7 @@ A Go-based API and web server to centralize cron job results and export their st
 - **Per-job automatic failure threshold** (auto-marks jobs as failed if silence exceeds threshold)
 - **Arbitrary user-defined labels** per job for flexible Prometheus queries and UI filtering
 - **Maintenance mode** - jobs can be paused to suppress alerting/downtime without removal
+- **Web Dashboard** (optional) - real-time job monitoring with visual deadline status indicators
 - **Admin CLI** for all job management operations with automatic API key generation
 - **SQLite backend** with automatic migrations
 - **Structured logging** with configurable levels and formats
@@ -134,6 +135,46 @@ docker run -d \
 - `main`: Latest development build from main branch
 - `v1.x.x`: Specific release versions
 - `sha-<commit>`: Specific commit builds
+
+## Web Dashboard (Optional)
+
+The application includes a web dashboard for visual job monitoring and management.
+
+### Enable Dashboard
+
+Add to your configuration file:
+
+```yaml
+dashboard:
+  enabled: true
+  path: "/dashboard"          # Dashboard URL path
+  auth_required: true         # Require admin API key
+  title: "Cron Metrics"      # Dashboard title
+```
+
+### Access Dashboard
+
+Visit `http://localhost:8080/dashboard` to access:
+
+- **Job overview** with real-time status monitoring
+- **Visual deadline indicators** showing job health at a glance:
+  - 🟢 **Green**: Job reported within deadline (on time)
+  - 🟡 **Yellow**: Job approaching deadline (80% of threshold)
+  - 🔴 **Red**: Job missed deadline (past AutomaticFailureThreshold)
+  - ⚫ **Gray**: Job in maintenance or paused status
+- **Search and filtering** by job name, host, or labels
+- **Job management** - create, edit, toggle maintenance mode
+- **Real-time updates** via Server-Sent Events or polling fallback
+
+### Dashboard Features
+
+- **Responsive design** that works on desktop and mobile
+- **Real-time job status** updates without page refresh
+- **Visual deadline tracking** based on per-job thresholds
+- **Label-based filtering** and search capabilities
+- **Maintenance mode controls** for suppressing alerts
+- **Pagination** for large job lists
+- **Authentication** with admin API keys
 
 ## Usage
 

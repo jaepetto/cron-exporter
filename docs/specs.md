@@ -175,6 +175,72 @@ The integrated Swagger UI provides:
 - **Real-time Validation**: Input validation and error handling examples
 - **Export Capabilities**: Download OpenAPI spec for external tooling
 
+### Web Dashboard (Optional Feature)
+
+#### Overview
+
+The web dashboard provides a visual interface for job monitoring and management, built using Gin framework with HTMX for real-time updates.
+
+**Route:** `GET /dashboard`
+**Purpose:** Provide a simple HTML interface for job monitoring
+
+#### Visual Deadline Status Indicators
+
+The dashboard displays clear visual indicators for job health based on automatic failure thresholds:
+
+- **🟢 Green (Success)**: Job reported within deadline (on time)
+- **🟡 Yellow (Warning)**: Job approaching deadline (80% of threshold reached)
+- **🔴 Red (Danger)**: Job missed deadline (past AutomaticFailureThreshold)
+- **⚫ Gray (Inactive)**: Job in maintenance or paused status
+
+**Status Calculation Logic:**
+```go
+// Same logic as Prometheus metrics system
+now := time.Now().UTC()
+timeSinceLastReport := now.Sub(job.LastReportedAt)
+thresholdDuration := time.Duration(job.AutomaticFailureThreshold) * time.Second
+
+if timeSinceLastReport > thresholdDuration {
+    return "danger"  // Missed deadline
+}
+
+warningThreshold := time.Duration(float64(job.AutomaticFailureThreshold) * 0.8) * time.Second
+if timeSinceLastReport > warningThreshold {
+    return "warning"  // Approaching deadline
+}
+
+return "success"  // On time
+```
+
+#### Features
+
+- **Job overview table** with real-time status monitoring
+- **Search and filtering** by job name, host, or labels
+- **Job management** - create, edit, toggle maintenance mode
+- **Real-time updates** via Server-Sent Events or polling fallback
+- **Responsive design** that works on desktop and mobile
+- **Visual deadline tracking** based on per-job thresholds
+- **Authentication** with admin API keys
+
+#### Configuration
+
+```yaml
+dashboard:
+  enabled: true                # Enable/disable dashboard
+  path: "/dashboard"          # Dashboard URL path
+  title: "Cron Metrics"      # Dashboard title
+  auth_required: true         # Require admin API key
+  refresh_interval: 30        # Auto-refresh interval (seconds)
+  page_size: 25              # Jobs per page
+  # Real-time updates
+  sse_enabled: true           # Server-Sent Events
+  sse_timeout: 30            # SSE connection timeout
+  sse_heartbeat: 10          # SSE heartbeat interval
+  sse_max_clients: 100       # Max concurrent SSE clients
+  polling_fallback: true     # HTMX polling fallback
+  polling_interval: 5        # Polling interval (seconds)
+```
+
 ### Tooling & Codebase
 
 - Cobra: CLI structure (cmd/cronmetrics for serve, job, config, etc.)
