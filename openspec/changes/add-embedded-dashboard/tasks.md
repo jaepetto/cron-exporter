@@ -130,64 +130,219 @@
   - ✅ `POST /dashboard/jobs/:id/delete` - Job deletion handler
   - ✅ `POST /dashboard/jobs/:id/toggle` - Maintenance mode toggle
 
-## Phase 2: Enhanced Features & Polish (FUTURE DEVELOPMENT)
+## Phase 2: Tailwind CSS Migration ⏳ NEXT PRIORITY
+
+### Overview
+
+Migrate from custom Bootstrap-inspired CSS (~583 lines) to Tailwind CSS for better maintainability, smaller bundle size, and faster development of future dashboard features.
+
+### Benefits Analysis
+
+- **Bundle Size**: Current CSS ~583 lines → Tailwind purged CSS likely <200 lines
+- **Development Speed**: Utility-first approach accelerates feature development
+- **Consistency**: Built-in design system ensures visual consistency
+- **Maintainability**: Eliminate custom CSS maintenance overhead
+- **Future-proof**: Easier to extend as dashboard grows
+
+### Implementation Tasks
+
+#### T2.1: Build System Integration ⏳
+
+- [ ] **Add Tailwind CSS dependencies**
+  - Add `tailwindcss`, `@tailwindcss/cli` as dev dependencies (npm/yarn)
+  - Create `package.json` for Node.js tooling
+  - Add `.gitignore` entries for `node_modules/`, `package-lock.json`
+
+- [ ] **Configure Tailwind build process**
+  - Create `tailwind.config.js` with content paths for Go templates
+  - Create `src/input.css` with Tailwind directives
+  - Configure output path to `pkg/dashboard/assets/tailwind.css`
+  - Set up purging for Go template files (`pkg/dashboard/templates/**/*.html`)
+
+- [ ] **Update mise tasks**
+  - Extend `dev` task to run Tailwind watch mode
+  - Add `build-css` task for production CSS generation
+  - Update `build` task to include CSS generation
+  - Add `clean` task to remove generated assets
+
+#### T2.2: CSS Migration Strategy ⏳
+
+- [ ] **Audit current styles and create mapping**
+  - Map existing Bootstrap-inspired classes to Tailwind equivalents
+  - Document custom components that need Tailwind layer definitions
+  - Identify responsive breakpoints and utility needs
+  - Plan color palette migration (CSS custom properties → Tailwind config)
+
+- [ ] **Create Tailwind configuration**
+  - Define color scheme matching current `--bs-*` CSS variables
+  - Configure custom component classes for complex elements
+  - Set up responsive breakpoints matching current design
+  - Configure purge content patterns for Go templates
+
+#### T2.3: Template Migration ⏳
+
+- [ ] **Migrate core layout components**
+  - Update `templates/jobs.html` navigation and container classes
+  - Migrate table styling in job list components
+  - Convert form elements in `templates/job_form.html`
+  - Update button classes throughout all templates
+
+- [ ] **Migrate component-specific styles**
+  - Convert badge/status indicators to Tailwind utilities
+  - Migrate pagination component styling
+  - Update modal and toast notification styles
+  - Convert responsive grid layouts
+
+- [ ] **Update template functions and helpers**
+  - Modify template functions to output Tailwind classes
+  - Update status badge generation with Tailwind color utilities
+  - Ensure proper responsive class application
+
+#### T2.4: Asset System Updates ⏳
+
+- [ ] **Update asset embedding**
+  - Remove current `dashboard.css` from embedded assets
+  - Add generated `tailwind.css` to Go embed directives
+  - Update `assets.go` to serve new CSS file
+  - Ensure proper MIME types and caching headers
+
+- [ ] **Verify binary size impact**
+  - Measure current binary size with custom CSS
+  - Compare with Tailwind CSS embedded version
+  - Ensure total increase is <100KB for production builds
+  - Document size comparison in change notes
+
+#### T2.5: Development Workflow Integration ⏳
+
+- [ ] **Update development setup**
+  - Document Node.js requirements in README
+  - Add CSS build step to getting started guide
+  - Update `CONTRIBUTING.md` with CSS development workflow
+  - Ensure `mise install` handles Node.js dependencies
+
+- [ ] **Create development scripts**
+  - Add `watch-css` command for development
+  - Integrate CSS building with file watching
+  - Add CSS linting and formatting tools
+  - Set up proper development vs production builds
+
+#### T2.6: Testing & Validation ⏳
+
+- [ ] **Visual regression testing**
+  - Capture screenshots of current dashboard pages
+  - Compare post-migration visual output
+  - Verify responsive behavior across breakpoints
+  - Test all interactive states (hover, focus, active)
+
+- [ ] **Cross-browser compatibility**
+  - Test in Chrome, Firefox, Safari
+  - Verify mobile responsiveness
+  - Validate accessibility compliance
+  - Ensure proper fallbacks for older browsers
+
+- [ ] **Performance validation**
+  - Measure CSS load times before/after
+  - Verify bundle size reduction achieved
+  - Test page load speeds on various connections
+  - Ensure no rendering performance regression
+
+#### T2.7: Documentation & Cleanup ⏳
+
+- [ ] **Update documentation**
+  - Document Tailwind CSS setup in README
+  - Add CSS development workflow to CONTRIBUTING
+  - Update change log with migration details
+  - Document any breaking changes (should be none)
+
+- [ ] **Clean up legacy code**
+  - Remove old `dashboard.css` file
+  - Clean up unused CSS-related functions
+  - Remove Bootstrap references from comments
+  - Update any CSS-related configuration
+
+### Success Criteria
+
+- [ ] Dashboard visual appearance unchanged (pixel-perfect migration)
+- [ ] CSS bundle size reduced by >30%
+- [ ] Development workflow for CSS changes documented and working
+- [ ] All existing dashboard functionality preserved
+- [ ] Binary size increase <100KB
+- [ ] All tests passing (no regressions)
+- [ ] Cross-browser compatibility maintained
+
+### Risk Mitigation
+
+- **Visual Regressions**: Comprehensive screenshot testing before/after
+- **Build Complexity**: Thorough documentation and mise task integration
+- **Bundle Size**: Careful purge configuration and size monitoring
+- **Development Friction**: Clear workflow documentation and helper scripts
+
+### Timeline Estimate
+
+- **T2.1-T2.2**: Build system setup (2-3 hours)
+- **T2.3**: Template migration (4-6 hours)
+- **T2.4-T2.5**: Asset system updates (2-3 hours)
+- **T2.6-T2.7**: Testing and documentation (3-4 hours)
+- **Total**: 11-16 hours of focused development work
+
+## Phase 3: Enhanced Features & Polish (AFTER TAILWIND MIGRATION)
 
 ### Real-time Updates & Search
 
-- [x] **T2.1**: Implement job status monitoring
+- [x] **T3.1**: Implement job status monitoring
   - Server-sent events for real-time job status updates
   - HTMX polling fallback for SSE-incompatible browsers
   - Auto-refresh configuration per dashboard settings
   - Broadcast status changes to all connected clients
 
-- [x] **T2.2**: Advanced search and filtering
+- [x] **T3.2**: Advanced search and filtering
   - Multi-criteria search (host, name, status, labels)
   - Real-time search with HTMX partial updates
   - Search result highlighting and pagination
   - Filter by job status, maintenance mode, last execution time
 
-- [ ] **T2.3**: Performance optimizations
+- [ ] **T3.3**: Performance optimizations
   - Job list pagination (configurable page size, default 25)
   - Database query optimization with proper indexing
   - Caching frequently accessed dashboard data
   - Lazy loading for large job lists
 
-### Mobile & Accessibility
+### Mobile & Accessibility (With Tailwind Utilities)
 
-- [ ] **T2.4**: Responsive design enhancements
-  - Mobile-optimized Bootstrap layouts
+- [ ] **T3.4**: Responsive design enhancements
+  - Mobile-optimized layouts using Tailwind responsive utilities
   - Touch-friendly interaction elements (44px minimum targets)
-  - Tablet-specific layout adjustments
+  - Tablet-specific layout adjustments with Tailwind breakpoints
   - Improved navigation for small screens
 
-- [ ] **T2.5**: Accessibility compliance
+- [ ] **T3.5**: Accessibility compliance
   - WCAG 2.1 AA compliance for all dashboard components
   - Keyboard navigation support for all interactive elements
   - Screen reader compatibility with ARIA labels
-  - High contrast color schemes and focus indicators
+  - High contrast color schemes using Tailwind accessibility utilities
 
-## Phase 3: Advanced Features (FUTURE DEVELOPMENT)
+## Phase 4: Advanced Features (FUTURE DEVELOPMENT)
 
-- [ ] **T3.1**: Add dashboard charts and graphs
+- [ ] **T4.1**: Add dashboard charts and graphs
   - Job success/failure rate charts
   - Execution duration trends
   - Failure pattern analysis
 
-- [ ] **T3.2**: Implement advanced filtering and search
+- [ ] **T4.2**: Implement advanced filtering and search
   - Full-text search across job names and labels
   - Advanced filter by labels, status, host
   - Saved filter presets
 
-- [ ] **T3.3**: Add bulk operations UI
+- [ ] **T4.3**: Add bulk operations UI
   - Multi-select job operations
   - Bulk status changes
   - Bulk label management
 
-## Phase 4: Testing & Quality Assurance (PARTIALLY COMPLETED)
+## Phase 5: Testing & Quality Assurance (PARTIALLY COMPLETED)
 
 ### Mise Task Integration ✅ COMPLETED
 
-- [x] **T4.1**: Configure mise development tasks ✅
+- [x] **T5.1**: Configure mise development tasks ✅
   - ✅ Updated `mise run dev` to use `dev-config-dashboard.yaml`
   - ✅ `mise run build` builds binary with embedded dashboard assets
   - ✅ Dashboard assets automatically embedded via Go embed directive
@@ -429,19 +584,26 @@
 
 ### ⏳ REMAINING WORK (Future Development)
 
-**Phase 2: Enhanced Features & Polish** - Not Started
+**Phase 2: Tailwind CSS Migration** - Next Priority
+
+- Build system integration with Node.js tooling
+- CSS migration strategy and template updates
+- Asset system updates and binary size optimization
+- Development workflow integration
+
+**Phase 3: Enhanced Features & Polish** - After Tailwind Migration
 
 - Real-time updates and advanced search features
-- Mobile & accessibility enhancements
+- Mobile & accessibility enhancements (with Tailwind utilities)
 - Performance optimizations
 
-**Phase 3: Advanced Features** - Not Started
+**Phase 4: Advanced Features** - Future Development
 
 - Charts and graphs
 - Advanced filtering
 - Bulk operations
 
-**Phase 4: Testing & Quality Assurance** - Partially Complete
+**Phase 5: Testing & Quality Assurance** - Ongoing
 
 - ✅ Mise task integration complete
 - ⏳ Formal unit test suite (current coverage maintained)
@@ -461,7 +623,9 @@ The embedded dashboard is **production-ready** with Phase 1 complete:
 
 ### 🔄 NEXT STEPS
 
-1. **Optional**: Implement formal test suites (Phase 4)
-2. **Optional**: Add enhanced features (Phase 2-3)
-3. **Ready**: Deploy to production with dashboard enabled
-4. **Ready**: Document dashboard usage for end users
+1. **Priority**: Implement Tailwind CSS migration (Phase 2)
+2. **Optional**: Implement enhanced features with Tailwind (Phase 3)
+3. **Optional**: Add advanced features (Phase 4)
+4. **Optional**: Implement formal test suites (Phase 5)
+5. **Ready**: Deploy to production with dashboard enabled
+6. **Ready**: Document dashboard usage for end users
