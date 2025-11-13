@@ -122,11 +122,4 @@ mise run e2e              # Run end-to-end tests
 - Documentation updates are REQUIRED with every code change - no exceptions
 - All docs must be kept current to ensure any newcomer can contribute immediately
 
-**Critical: Newcomer Onboarding Documentation**
-- `README.md` must provide complete setup instructions from clone to running server
-- `CONTRIBUTING.md` must include development workflow, testing requirements, and PR guidelines
-- `CHANGELOG.md` must document all breaking changes and migration paths
-- Documentation updates are REQUIRED with every code change - no exceptions
-- All docs must be kept current to ensure any newcomer can contribute immediately
-
 ---
