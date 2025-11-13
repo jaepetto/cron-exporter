@@ -30,21 +30,39 @@ description = "Run integration tests with coverage"
 run = "go test -v ./..."
 description = "Run all tests with verbose output"
 
+[tasks.build-css]
+run = "npm run build-css"
+description = "Build Tailwind CSS for production"
+
+[tasks.watch-css]
+run = "npm run watch-css"
+description = "Watch for changes and rebuild Tailwind CSS automatically"
+
+[tasks.dev-css]
+run = "npm run dev-css"
+description = "Build Tailwind CSS for development with watch mode"
+
 [tasks.build]
-run = "go build -o bin/cronmetrics ./cmd/cronmetrics"
-description = "Build static binary"
+run = [
+    "mise run build-css",
+    "go build -o bin/cronmetrics ./cmd/cronmetrics"
+]
+description = "Build Tailwind CSS and static binary"
 
 [tasks.dev]
-run = "./bin/cronmetrics serve --config dev-config-dashboard.yaml --dev &"
-description = "Start development server (in background) with dashboard enabled"
+run = [
+    "mise run build",
+    "./bin/cronmetrics serve --config dev-config-dashboard.yaml --dev &"
+]
+description = "Build CSS, build binary, and start development server with dashboard enabled"
 
 [tasks.stop-dev]
 run = "pkill -f 'cronmetrics'"
 description = "Stop development server"
 
 [tasks.clean]
-run = "rm -rf bin/ dist/ coverage*.out coverage*.html gosec-report.*"
-description = "Clean build artifacts, coverage reports, and security reports"
+run = "rm -rf bin/ dist/ coverage*.out coverage*.html gosec-report.* pkg/dashboard/assets/tailwind.css"
+description = "Clean build artifacts, coverage reports, security reports, and generated CSS"
 
 [tasks.lint]
 run = "go vet ./... && go fmt ./..."

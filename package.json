@@ -1,0 +1,17 @@
+{
+  "name": "cron-exporter",
+  "version": "1.0.0",
+  "description": "Tailwind CSS build for embedded dashboard",
+  "main": "index.js",
+  "scripts": {
+    "build-css": "tailwindcss -i ./src/input.css -o ./pkg/dashboard/assets/tailwind.css --minify",
+    "watch-css": "tailwindcss -i ./src/input.css -o ./pkg/dashboard/assets/tailwind.css --watch",
+    "dev-css": "tailwindcss -i ./src/input.css -o ./pkg/dashboard/assets/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.3.0"
+  },
+  "keywords": ["tailwind", "css", "dashboard"],
+  "author": "",
+  "license": "MIT"
+}
