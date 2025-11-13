@@ -40,17 +40,12 @@ func (h *Handler) ServeAssets(c *gin.Context) {
 	// Get the filepath parameter from Gin route
 	filepath := c.Param("filepath")
 
-	// Debug logging
-	h.logger.WithField("filepath", filepath).Debug("serving asset")
-
 	// Create a new request with the correct path
 	r := c.Request.Clone(c.Request.Context())
 	r.URL.Path = filepath
 
 	h.assetHandler.ServeHTTP(c.Writer, r)
-}
-
-// JobsList displays the main jobs list page
+} // JobsList displays the main jobs list page
 func (h *Handler) JobsList(c *gin.Context) {
 	// Use the search system with empty criteria to get all jobs with pagination
 	criteria := &model.JobSearchCriteria{
