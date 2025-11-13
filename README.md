@@ -166,6 +166,24 @@ Visit `http://localhost:8080/dashboard` to access:
 - **Job management** - create, edit, toggle maintenance mode
 - **Real-time updates** via Server-Sent Events or polling fallback
 
+#### Dashboard Authentication
+
+The dashboard uses HTTP Basic Authentication when `auth_required: true` is set:
+
+- **Username**: `admin` (or any value)
+- **Password**: Your admin API key (e.g., `test-admin-key-12345`)
+
+Example browser access: When prompted, enter:
+
+- Username: `admin`
+- Password: `test-admin-key-12345`
+
+Or using curl:
+
+```bash
+curl -u admin:test-admin-key-12345 http://localhost:8080/dashboard/
+```
+
 ### Dashboard Features
 
 - **Responsive design** that works on desktop and mobile
