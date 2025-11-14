@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
 )
@@ -72,11 +73,11 @@ type JobSearchResult struct {
 
 // JobStore provides database operations for jobs
 type JobStore struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewJobStore creates a new JobStore instance
-func NewJobStore(db *sql.DB) *JobStore {
+func NewJobStore(db *sqlx.DB) *JobStore {
 	return &JobStore{db: db}
 }
 
@@ -92,16 +93,15 @@ func (s *JobStore) CreateJob(job *Job) error {
 	job.UpdatedAt = now
 
 	query := `
-		INSERT INTO jobs (name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
+	       INSERT INTO jobs (name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at)
+	       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       `
 
 	result, err := s.db.Exec(query, job.Name, job.Host, job.ApiKey, job.AutomaticFailureThreshold, string(labelsJSON), job.Status, job.LastReportedAt, job.CreatedAt, job.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to create job: %w", err)
 	}
 
-	// Get the auto-generated ID
 	id, err := result.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("failed to get job ID: %w", err)
@@ -120,18 +120,16 @@ func (s *JobStore) CreateJob(job *Job) error {
 // GetJobByID retrieves a job by its ID
 func (s *JobStore) GetJobByID(id int) (*Job, error) {
 	query := `
-		SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
-		FROM jobs
-		WHERE id = ?
-	`
-
-	row := s.db.QueryRow(query, id)
+	       SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+	       FROM jobs
+	       WHERE id = ?
+       `
 
 	job := &Job{}
 	var labelsJSON string
 	var apiKeyNull sql.NullString
 
-	err := row.Scan(&job.ID, &job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
+	err := s.db.QueryRowx(query, id).Scan(&job.ID, &job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job not found with ID: %d", id)
@@ -153,18 +151,16 @@ func (s *JobStore) GetJobByID(id int) (*Job, error) {
 // GetJob retrieves a job by name and host (kept for backward compatibility)
 func (s *JobStore) GetJob(name, host string) (*Job, error) {
 	query := `
-		SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
-		FROM jobs
-		WHERE name = ? AND host = ?
-	`
-
-	row := s.db.QueryRow(query, name, host)
+	       SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+	       FROM jobs
+	       WHERE name = ? AND host = ?
+       `
 
 	job := &Job{}
 	var labelsJSON string
 	var apiKeyNull sql.NullString
 
-	err := row.Scan(&job.ID, &job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
+	err := s.db.QueryRowx(query, name, host).Scan(&job.ID, &job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job not found: %s@%s", name, host)
@@ -186,12 +182,12 @@ func (s *JobStore) GetJob(name, host string) (*Job, error) {
 // ListJobs retrieves all jobs with optional label filtering
 func (s *JobStore) ListJobs(labelFilters map[string]string) ([]*Job, error) {
 	query := `
-		SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
-		FROM jobs
-		ORDER BY id
-	`
+	       SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+	       FROM jobs
+	       ORDER BY id
+       `
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.Queryx(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list jobs: %w", err)
 	}
@@ -308,14 +304,10 @@ func (s *JobStore) SearchJobs(criteria *JobSearchCriteria) (*JobSearchResult, er
 	}
 
 	// First, get the total count for pagination
-	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM jobs
-		%s
-	`, whereClause)
+	countQuery := "SELECT COUNT(*) FROM jobs " + whereClause
 
 	var totalCount int
-	err := s.db.QueryRow(countQuery, args...).Scan(&totalCount)
+	err := s.db.Get(&totalCount, countQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count jobs: %w", err)
 	}
@@ -325,18 +317,12 @@ func (s *JobStore) SearchJobs(criteria *JobSearchCriteria) (*JobSearchResult, er
 	offset := (criteria.Page - 1) * criteria.PageSize
 
 	// Build the main query with pagination
-	query := fmt.Sprintf(`
-		SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
-		FROM jobs
-		%s
-		ORDER BY id
-		LIMIT ? OFFSET ?
-	`, whereClause)
+	query := "SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at FROM jobs " + whereClause + " ORDER BY id LIMIT ? OFFSET ?"
 
 	// Add pagination parameters
 	paginationArgs := append(args, criteria.PageSize, offset)
 
-	rows, err := s.db.Query(query, paginationArgs...)
+	rows, err := s.db.Queryx(query, paginationArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search jobs: %w", err)
 	}
@@ -407,10 +393,10 @@ func (s *JobStore) UpdateJobByID(job *Job) error {
 	job.UpdatedAt = time.Now().UTC()
 
 	query := `
-		UPDATE jobs
-		SET name = ?, host = ?, api_key = ?, automatic_failure_threshold = ?, labels = ?, status = ?, last_reported_at = ?, updated_at = ?
-		WHERE id = ?
-	`
+	       UPDATE jobs
+	       SET name = ?, host = ?, api_key = ?, automatic_failure_threshold = ?, labels = ?, status = ?, last_reported_at = ?, updated_at = ?
+	       WHERE id = ?
+       `
 
 	result, err := s.db.Exec(query, job.Name, job.Host, job.ApiKey, job.AutomaticFailureThreshold, string(labelsJSON), job.Status, job.LastReportedAt, job.UpdatedAt, job.ID)
 	if err != nil {
@@ -446,10 +432,10 @@ func (s *JobStore) UpdateJob(job *Job) error {
 	job.UpdatedAt = time.Now().UTC()
 
 	query := `
-		UPDATE jobs
-		SET api_key = ?, automatic_failure_threshold = ?, labels = ?, status = ?, last_reported_at = ?, updated_at = ?
-		WHERE name = ? AND host = ?
-	`
+	       UPDATE jobs
+	       SET api_key = ?, automatic_failure_threshold = ?, labels = ?, status = ?, last_reported_at = ?, updated_at = ?
+	       WHERE name = ? AND host = ?
+       `
 
 	result, err := s.db.Exec(query, job.ApiKey, job.AutomaticFailureThreshold, string(labelsJSON), job.Status, job.LastReportedAt, job.UpdatedAt, job.Name, job.Host)
 	if err != nil {
@@ -528,10 +514,10 @@ func (s *JobStore) DeleteJob(name, host string) error {
 // UpdateJobLastReported updates the last_reported_at timestamp for a job
 func (s *JobStore) UpdateJobLastReported(name, host string, timestamp time.Time) error {
 	query := `
-		UPDATE jobs
-		SET last_reported_at = ?, updated_at = ?
-		WHERE name = ? AND host = ?
-	`
+	       UPDATE jobs
+	       SET last_reported_at = ?, updated_at = ?
+	       WHERE name = ? AND host = ?
+       `
 
 	now := time.Now().UTC()
 	result, err := s.db.Exec(query, timestamp, now, name, host)
@@ -558,18 +544,16 @@ func (s *JobStore) GetJobByApiKey(apiKey string) (*Job, error) {
 	}
 
 	query := `
-		SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
-		FROM jobs
-		WHERE api_key = ?
-	`
-
-	row := s.db.QueryRow(query, apiKey)
+	       SELECT id, name, host, api_key, automatic_failure_threshold, labels, status, last_reported_at, created_at, updated_at
+	       FROM jobs
+	       WHERE api_key = ?
+       `
 
 	job := &Job{}
 	var labelsJSON string
 	var apiKeyNull sql.NullString
 
-	err := row.Scan(&job.ID, &job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
+	err := s.db.QueryRowx(query, apiKey).Scan(&job.ID, &job.Name, &job.Host, &apiKeyNull, &job.AutomaticFailureThreshold, &labelsJSON, &job.Status, &job.LastReportedAt, &job.CreatedAt, &job.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("job not found for API key")

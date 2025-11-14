@@ -1,6 +1,17 @@
 
 # Cron Metrics Collector & Exporter (Go Edition)
 
+### Database Layer
+
+**All database access must use [sqlx](https://github.com/jmoiron/sqlx).**
+
+- All queries must be parameterized (no string interpolation)
+- All DB helpers and stores use `*sqlx.DB`
+- See `pkg/model/database.go` for canonical usage
+
+#### Migration Note
+Legacy code using `database/sql` has been fully migrated to `sqlx` as of November 2025. All contributors must follow this pattern.
+
 ## Overview
 
 A Go-based API and web server to centralize cron job results and export their statuses as Prometheus-compatible metrics. Focused on simple curl integration, fast and robust deployment, complete lifecycle management (CRUD API), and sophisticated monitoring—including maintenance/alert suppression and structured, maintainable code and docs.

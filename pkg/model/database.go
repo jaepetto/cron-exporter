@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 )
 
-// Database provides database connection and migration functionality
 type Database struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewDatabase creates a new Database instance
@@ -24,7 +24,7 @@ func NewDatabase(dbPath string) (*Database, error) {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
+	db, err := sqlx.Open("sqlite3", dbPath+"?_foreign_keys=on")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -45,8 +45,8 @@ func NewDatabase(dbPath string) (*Database, error) {
 	return database, nil
 }
 
-// GetDB returns the underlying database connection
-func (d *Database) GetDB() *sql.DB {
+// GetDB returns the underlying sqlx database connection
+func (d *Database) GetDB() *sqlx.DB {
 	return d.db
 }
 
@@ -82,7 +82,6 @@ func (d *Database) RunMigrations() error {
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -268,11 +267,11 @@ func (d *Database) getMigrationSQL(filename string) (string, error) {
 
 // JobResultStore provides database operations for job results
 type JobResultStore struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 // NewJobResultStore creates a new JobResultStore instance
-func NewJobResultStore(db *sql.DB) *JobResultStore {
+func NewJobResultStore(db *sqlx.DB) *JobResultStore {
 	return &JobResultStore{db: db}
 }
 
@@ -315,7 +314,7 @@ func (s *JobResultStore) GetJobResults(jobName, host string, limit int) ([]*JobR
 		LIMIT ?
 	`
 
-	rows, err := s.db.Query(query, jobName, host, limit)
+	rows, err := s.db.Queryx(query, jobName, host, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job results: %w", err)
 	}

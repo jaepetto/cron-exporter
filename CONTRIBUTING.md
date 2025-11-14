@@ -244,6 +244,11 @@ func TestNewFeature(t *testing.T) {
 }
 ```
 
+### Database Access Policy
+- All new and existing database code **must** use [sqlx](https://github.com/jmoiron/sqlx). Direct use of `database/sql` is not permitted.
+- All PRs must ensure parameterized queries and avoid string interpolation for SQL.
+- See `pkg/model/database.go` for canonical usage.
+
 ## Project Structure
 
 ```text

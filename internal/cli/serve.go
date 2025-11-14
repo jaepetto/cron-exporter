@@ -56,14 +56,14 @@ func runServer() error {
 	defer db.Close()
 
 	// Configure database connection pool
-	sqlDB := db.GetDB()
-	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
-	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
-	sqlDB.SetConnMaxLifetime(time.Duration(cfg.Database.ConnMaxLifetime) * time.Second)
+	sqlxDB := db.GetDB()
+	sqlxDB.SetMaxOpenConns(cfg.Database.MaxOpenConns)
+	sqlxDB.SetMaxIdleConns(cfg.Database.MaxIdleConns)
+	sqlxDB.SetConnMaxLifetime(time.Duration(cfg.Database.ConnMaxLifetime) * time.Second)
 
 	// Create stores
-	jobStore := model.NewJobStore(sqlDB)
-	jobResultStore := model.NewJobResultStore(sqlDB)
+	jobStore := model.NewJobStore(sqlxDB)
+	jobResultStore := model.NewJobResultStore(sqlxDB)
 
 	// Initialize metrics collector
 	metricsCollector := metrics.NewCollector(jobStore, jobResultStore)

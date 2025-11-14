@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+- Migrated all database access from `database/sql` to `github.com/jmoiron/sqlx` for improved security and maintainability
+- All queries now use parameterized statements via sqlx, eliminating SQL injection risks
+- All store constructors and helpers now require `*sqlx.DB`
+
+# Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

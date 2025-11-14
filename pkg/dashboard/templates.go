@@ -254,11 +254,11 @@ func LoadTemplates() *template.Template {
 			}
 			return string(bytes)
 		},
-		"highlightText": func(text, query string) template.HTML {
+		"highlightText": func(text, query string) string {
 			if query == "" {
-				return template.HTML(template.HTMLEscapeString(text))
+				return text // Let template engine escape
 			}
-			return highlightTextHelper(text, query)
+			return highlightTextHelperString(text, query)
 		},
 		"buildSearchQuery": func(criteria interface{}, page int) string {
 			return buildSearchQueryHelper(criteria, page)
@@ -341,10 +341,10 @@ func formatInt(i int64) string {
 	return string(rune('0'+i/10)) + string(rune('0'+i%10))
 }
 
-// highlightTextHelper highlights search terms in text
-func highlightTextHelper(text, query string) template.HTML {
+// highlightTextHelperString highlights search terms in text and returns a string (safe for template auto-escaping)
+func highlightTextHelperString(text, query string) string {
 	if query == "" {
-		return template.HTML(template.HTMLEscapeString(text))
+		return text // Let template engine escape
 	}
 
 	// Escape the text first
@@ -353,15 +353,15 @@ func highlightTextHelper(text, query string) template.HTML {
 	// Create case-insensitive regex for the query
 	regex, err := regexp.Compile("(?i)" + regexp.QuoteMeta(query))
 	if err != nil {
-		return template.HTML(escaped)
+		return escaped // Let template engine escape
 	}
 
 	// Replace matches with highlighted version
 	highlighted := regex.ReplaceAllStringFunc(escaped, func(match string) string {
-		return `<mark class="bg-warning">` + match + `</mark>`
+		return `<mark class=\"bg-warning\">` + match + `</mark>`
 	})
 
-	return template.HTML(highlighted)
+	return highlighted // Let template engine escape
 }
 
 // buildSearchQueryHelper builds URL query string for pagination links
