@@ -1,26 +1,4 @@
 # Cron Metrics Collector & Exporter
-#
-## Database Access: sqlx Migration
-
-All database access now uses [github.com/jmoiron/sqlx](https://github.com/jmoiron/sqlx) for safer, more maintainable queries and parameter binding. Direct use of `database/sql` is deprecated in this codebase.
-
-### Why sqlx?
-- Prevents SQL injection by enforcing parameterized queries
-- Simplifies scanning/querying into structs
-- Enables more readable and maintainable code
-
-### Example Usage
-```go
-import (
-  "github.com/jmoiron/sqlx"
-  _ "github.com/mattn/go-sqlite3"
-)
-
-db, err := sqlx.Open("sqlite3", "file.db")
-// Use db.Queryx, db.Get, db.Select, etc.
-```
-
-See `pkg/model/database.go` for implementation patterns.
 
 [![CI/CD Pipeline](https://github.com/jaepetto/cron-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/jaepetto/cron-exporter/actions/workflows/ci.yml)
 [![Release](https://github.com/jaepetto/cron-exporter/actions/workflows/release.yml/badge.svg)](https://github.com/jaepetto/cron-exporter/actions/workflows/release.yml)
