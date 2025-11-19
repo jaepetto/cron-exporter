@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
+	_ "modernc.org/sqlite"
 )
 
 // Job represents a cron job definition with its configuration and status

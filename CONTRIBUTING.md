@@ -328,7 +328,7 @@ ls -la dist/
 
 1. **Tests failing?** Run `mise run test-all` to see detailed output
 2. **Build issues?** Ensure Go version matches `.tool-versions`
-3. **Database errors?** Check SQLite3 is installed and migrations are applied
+3. **Database errors?** Check database file permissions and migrations are applied (no SQLite3 installation required)
 4. **Port conflicts?** Tests use random ports, but check if development server is running
 
 ### Development Resources

@@ -2,7 +2,7 @@
 FROM golang:1.25.3-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev sqlite-dev
+RUN apk add --no-cache git ca-certificates tzdata
 
 # Set working directory
 WORKDIR /app
@@ -16,8 +16,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application with static linking
-RUN CGO_ENABLED=1 GOOS=linux go build \
+# Build the application with static linking (pure Go)
+RUN CGO_ENABLED=0 GOOS=linux go build \
     -a -installsuffix cgo \
     -ldflags '-w -s -extldflags "-static"' \
     -o cronmetrics ./cmd/cronmetrics

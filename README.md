@@ -25,7 +25,7 @@ A Go-based API and web server to centralize cron job results and export their st
 ### Prerequisites
 
 - Go 1.21+ (managed via mise)
-- SQLite3
+- No system dependencies required (pure Go SQLite implementation)
 
 ### Installation
 

@@ -124,7 +124,7 @@ A production-ready Go-based API and web server for centralizing cron job results
 
 ### Core Runtime Dependencies
 
-- **github.com/mattn/go-sqlite3** v1.14.32 - SQLite3 database driver with CGO requirements
+- **modernc.org/sqlite** v1.34.1 - Pure Go SQLite3 database driver (no CGO required)
 - **github.com/prometheus/client_golang** v1.23.2 - Prometheus metrics collection and exposition
 - **github.com/sirupsen/logrus** v1.9.3 - Structured logging with configurable levels and formats
 - **github.com/spf13/cobra** v1.10.1 - CLI framework for command-line interface
@@ -147,9 +147,9 @@ A production-ready Go-based API and web server for centralizing cron job results
 
 ### System Dependencies
 
-- **SQLite3** - Database engine (linked statically in build)
-- **CGO** - Required for SQLite3 driver compilation
 - **Git** - Version control and dependency management
+- **No SQLite3 system installation required** - Pure Go implementation
+- **No CGO required** - Enhanced portability and cross-compilation
 
 ### Optional Dependencies
 
