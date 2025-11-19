@@ -94,6 +94,10 @@ MAIN_PATH="./cmd/cronmetrics"
 # Create dist directory
 mkdir -p dist
 
+# Build CSS assets
+echo "Building CSS assets..."
+mise run build-css
+
 # Define target platforms
 declare -a platforms=(
     "linux/amd64"
@@ -133,7 +137,7 @@ echo "All builds completed successfully!"
 echo "Binaries available in dist/ directory:"
 ls -la dist/
 '''
-description = "Build static binaries for all platforms with maximum portability"
+description = "Build CSS and static binaries for all platforms with maximum portability"
 
 [tasks.build-release]
 run = '''
@@ -158,6 +162,10 @@ MAIN_PATH="./cmd/cronmetrics"
 
 # Create dist directory
 mkdir -p dist
+
+# Build CSS assets
+echo "Building CSS assets..."
+mise run build-css
 
 # Define target platforms for release
 declare -a platforms=(
@@ -204,7 +212,7 @@ echo "Release build completed!"
 echo "Archives available in dist/ directory:"
 ls -la dist/
 '''
-description = "Build release binaries with version info and create compressed archives"
+description = "Build CSS and release binaries with version info and create compressed archives"
 
 [tasks.ci]
 run = "mise run lint && mise run security && mise run test-all && mise run build"
