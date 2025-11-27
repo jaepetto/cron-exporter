@@ -75,7 +75,7 @@ func TestCompleteWorkflow(t *testing.T) {
 
 		successMetrics := metricsClient.GET("/metrics").BodyString()
 		assert.Contains(t, successMetrics, `job_name="daily-backup"`)
-		assert.Contains(t, successMetrics, `} "success"`)
+		assert.Contains(t, successMetrics, `} 1`)
 
 		// Step 5: Submit failure result
 		failureResult := map[string]interface{}{
@@ -93,7 +93,7 @@ func TestCompleteWorkflow(t *testing.T) {
 
 		failureMetrics := metricsClient.GET("/metrics").BodyString()
 		assert.Contains(t, failureMetrics, `job_name="daily-backup"`)
-		assert.Contains(t, failureMetrics, `} "failure"`)
+		assert.Contains(t, failureMetrics, `} 0`)
 
 		// Step 7: Set job to maintenance mode
 		maintenanceUpdate := map[string]interface{}{
@@ -150,7 +150,7 @@ func TestCompleteWorkflow(t *testing.T) {
 
 		finalMetrics := metricsClient.GET("/metrics").BodyString()
 		assert.Contains(t, finalMetrics, `job_name="daily-backup"`)
-		assert.Contains(t, finalMetrics, `} "success"`)
+		assert.Contains(t, finalMetrics, `} 1`)
 
 		// Step 12: Delete the job
 		adminClient.DELETE(fmt.Sprintf("/api/job/%d", createdJob.ID)).ExpectStatus(204)
@@ -258,22 +258,23 @@ func TestMultiJobWorkflow(t *testing.T) {
 
 		// Check each job appears with the expected status
 		expectedStatuses := map[string]string{
-			"web-backup":   "success",
-			"log-cleanup":  "failure",
-			"health-check": "success",
+			"web-backup":   "1", // success = 1
+			"log-cleanup":  "0", // failure = 0
+			"health-check": "1", // success = 1
 		}
 
 		for jobName, expectedStatus := range expectedStatuses {
 			assert.Contains(t, metrics, fmt.Sprintf(`job_name="%s"`, jobName))
 
-			// Find the specific metric line for this job in cronjob_status_info
+			// Find the specific metric line for this job in cronjob_status
 			lines := strings.Split(metrics, "\n")
 			found := false
 			for _, line := range lines {
 				if strings.Contains(line, fmt.Sprintf(`job_name="%s"`, jobName)) &&
-					strings.Contains(line, "cronjob_status_info") {
-					assert.Contains(t, line, fmt.Sprintf(`} "%s"`, expectedStatus),
-						fmt.Sprintf("Job %s should have status %s as value in line: %s", jobName, expectedStatus, line))
+					strings.Contains(line, "cronjob_status{") &&
+					!strings.Contains(line, "cronjob_status_") { // Avoid other cronjob_status_* metrics
+					assert.Contains(t, line, fmt.Sprintf(`} %s`, expectedStatus),
+						fmt.Sprintf("Job %s should have numeric status %s in line: %s", jobName, expectedStatus, line))
 					found = true
 					break
 				}
@@ -333,7 +334,7 @@ func TestAutoFailureDetectionWorkflow(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		initialMetrics := metricsClient.GET("/metrics").BodyString()
 		assert.Contains(t, initialMetrics, `job_name="timeout-test-job"`)
-		assert.Contains(t, initialMetrics, `} "success"`)
+		assert.Contains(t, initialMetrics, `} 1`)
 
 		// Wait for timeout to trigger
 		time.Sleep(2 * time.Second)
@@ -342,18 +343,17 @@ func TestAutoFailureDetectionWorkflow(t *testing.T) {
 		timeoutMetrics := metricsClient.GET("/metrics").BodyString()
 		assert.Contains(t, timeoutMetrics, `job_name="timeout-test-job"`)
 
-		// The job should now show as automatically failed
+		// The job should now show as automatically failed with missed deadline (-2)
 		lines := strings.Split(timeoutMetrics, "\n")
 		foundTimeoutLine := false
 		for _, line := range lines {
 			if strings.Contains(line, `job_name="timeout-test-job"`) &&
-				strings.Contains(line, "cronjob_status") {
+				strings.Contains(line, "cronjob_status{") &&
+				!strings.Contains(line, "cronjob_status_") { // Avoid other cronjob_status_* metrics
 				foundTimeoutLine = true
-				// Should not show success anymore
-				assert.NotContains(t, line, `} "success"`,
-
-					fmt.Sprintf("Job should not show as successful after timeout: %s", line))
-				// Should indicate failure or have value indicating auto-failure
+				// Should show missed deadline status (-2)
+				assert.Contains(t, line, `} -2`,
+					fmt.Sprintf("Job should show missed deadline status (-2) after timeout: %s", line))
 				break
 			}
 		}
@@ -374,6 +374,6 @@ func TestAutoFailureDetectionWorkflow(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 		recoveryMetrics := metricsClient.GET("/metrics").BodyString()
 		assert.Contains(t, recoveryMetrics, `job_name="timeout-test-job"`)
-		assert.Contains(t, recoveryMetrics, `} "success"`)
+		assert.Contains(t, recoveryMetrics, `} 1`)
 	})
 }

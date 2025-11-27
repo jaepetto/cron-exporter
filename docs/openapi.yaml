@@ -232,10 +232,11 @@ paths:
               schema:
                 type: string
                 example: |
-                  # HELP cronjob_status Status of cron job: 1=success, 0=failure, -1=maintenance/paused
+                  # HELP cronjob_status Status of cron job: 1=success, 0=failure, -1=maintenance/paused, -2=missed_deadline
                   # TYPE cronjob_status gauge
-                  cronjob_status{job_name="backup",host="web1",env="prod",status="success"} 1
-                  cronjob_status{job_name="maintenance_job",host="web2",status="maintenance"} -1
+                  cronjob_status{job_name="backup",host="web1",env="prod"} 1
+                  cronjob_status{job_name="maintenance_job",host="web2"} -1
+                  cronjob_status{job_name="old_job",host="web3"} -2
 
                   # HELP cronjob_last_run_timestamp Timestamp of last job execution
                   # TYPE cronjob_last_run_timestamp gauge

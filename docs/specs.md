@@ -39,7 +39,7 @@ A Go-based API and web server to centralize cron job results and export their st
 - Metrics and Monitoring:
   - /metrics endpoint outputs Prometheus-formatted metrics:
     - Per-job status (cronjob_status), last run, last error, auto-failure reason/expiry, all labels
-    - Jobs in maintenance/status have value -1 or a dedicated status="maintenance" label
+    - Jobs in maintenance status have value -1 to suppress alerting
   - Automatic failure if no result within automatic_failure_threshold (per job)
   - Metrics include all user-supplied labels
 - Security:
@@ -108,7 +108,7 @@ curl -X POST http://localhost:8080/api/job-result \
 ### Prometheus Metrics Example
 
 ```text
-# HELP cronjob_status Status of cron job: 1=success, 0=failure, -1=maintenance/paused
+# HELP cronjob_status Status of cron job: 1=success, 0=failure, -1=maintenance/paused, -2=missed_deadline
 # TYPE cronjob_status gauge
 
 # Active job with successful result
@@ -118,19 +118,13 @@ cronjob_status{job_name="sync_db",host="web1",env="prod",team="infra"} 1
 cronjob_status{job_name="backup",host="web2",env="prod"} 0
 
 # Job that missed its deadline (auto-failed)
-cronjob_status{job_name="cleanup",host="web3",env="prod"} 0
+cronjob_status{job_name="cleanup",host="web3",env="prod"} -2
 
 # Maintenance mode job (no alerting)
 cronjob_status{job_name="db_import",host="backup3",env="stage"} -1
 
-# HELP cronjob_status_info Job status information with status description
-# TYPE cronjob_status_info gauge
-
-# Status information for jobs
-cronjob_status_info{job_name="sync_db",host="web1",env="prod",team="infra"} "success"
-cronjob_status_info{job_name="backup",host="web2",env="prod"} "failure"
-cronjob_status_info{job_name="cleanup",host="web3",env="prod"} "missed_deadline"
-cronjob_status_info{job_name="db_import",host="backup3",env="stage"} "maintenance"
+# cronjob_status_info metric has been removed - all status is now represented as numeric values:
+# 1=success, 0=failure, -1=maintenance/paused, -2=missed_deadline
 
 # HELP cronjob_last_run_timestamp Timestamp of last job execution
 # TYPE cronjob_last_run_timestamp gauge
@@ -143,11 +137,12 @@ cronjob_total 4
 
 **Key Metrics Features:**
 
-- **Two-Metric Structure**: Numeric status in `cronjob_status`, textual status in `cronjob_status_info`
-- **User Labels**: Custom job labels are automatically included in both metrics
-- **Automatic Failure Detection**: Jobs exceeding thresholds get `status="missed_deadline"` in info metric
-- **Maintenance Support**: Maintenance jobs get value `-1` in status metric and `status="maintenance"` in info metric
-- **Stable Cardinality**: The main `cronjob_status` metric has consistent cardinality per job
+- **Single Metric Structure**: All status information in numeric `cronjob_status` metric only
+- **User Labels**: Custom job labels are automatically included in the status metric
+- **Status Values**: `1`=success, `0`=failure, `-1`=maintenance/paused, `-2`=missed_deadline
+- **Automatic Failure Detection**: Jobs exceeding thresholds get value `-2` (missed deadline)
+- **Maintenance Support**: Maintenance jobs get value `-1` to suppress alerting
+- **Stable Cardinality**: Single metric with consistent cardinality per job
 
 ### Authentication System
 
@@ -389,7 +384,7 @@ cronmetrics job show 1  # Shows full API key and job details
   - Comprehensive documentation updates for CI/CD workflow
 
 - v0.3, 2025-10-31: **Production-Ready Release with Full Test Coverage**
-  - Enhanced Prometheus metrics with proper status labels (`status="success"`, `status="failure"`, `status="maintenance"`)
+  - Enhanced Prometheus metrics with numeric status values (`1`=success, `0`=failure, `-1`=maintenance, `-2`=missed_deadline)
   - Improved metrics collector to determine actual job status from job results instead of heuristics
   - Fixed API status codes - job result submissions now correctly return HTTP 201 (Created)
   - Comprehensive test suite achieving 100% pass rate (integration + end-to-end)

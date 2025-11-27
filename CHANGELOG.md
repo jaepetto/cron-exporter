@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING**: Removed `cronjob_status_info` metric to fix Prometheus parsing issues
+  - All status information is now represented as numeric values in `cronjob_status` metric only
+  - Status values: `1`=success, `0`=failure, `-1`=maintenance/paused, `-2`=missed_deadline
+  - Eliminates cardinality issues while maintaining all functionality
+  - Resolves `strconv.ParseFloat: parsing "\"success\"": invalid syntax` error
+
 - **BREAKING**: Migrated from `github.com/mattn/go-sqlite3` to `modernc.org/sqlite` for pure Go implementation
 - Enhanced portability: No CGO or system SQLite dependencies required
 - Improved cross-compilation support for all Go-supported platforms
@@ -95,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced CLI job creation to display generated API keys with security warnings
 - Updated job model to include API key field with nullable database support
 - Modified API handlers to support API key generation and updates
-- **Enhanced Prometheus metrics** with proper status labels (`status="success"`, `status="failure"`, `status="maintenance"`)
+- **Enhanced Prometheus metrics** with numeric status values (`1`=success, `0`=failure, `-1`=maintenance)
 - Metrics collector now queries actual job results to determine real status instead of using heuristics
 - Improved CLI error handling and user feedback messages
 - Enhanced test utilities for better test isolation and reliability

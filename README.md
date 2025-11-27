@@ -291,19 +291,18 @@ curl -X POST http://localhost:8080/api/job-result \
 The `/metrics` endpoint provides:
 
 ```prometheus
-# Job status: 1=success, 0=failure, -1=maintenance/paused
+# Job status: 1=success, 0=failure, -1=maintenance/paused, -2=missed_deadline
 cronjob_status{job_name="backup",host="db1",env="prod",team="infra"} 1
 
-# Jobs in maintenance mode  
+# Jobs in maintenance mode
 cronjob_status{job_name="maintenance_job",host="web1"} -1
 
 # Auto-failed jobs (exceeded threshold)
 cronjob_status{job_name="old_job",host="web2"} 0
 
 # Job status information with textual descriptions
-cronjob_status_info{job_name="backup",host="db1",env="prod",team="infra"} "success"
-cronjob_status_info{job_name="maintenance_job",host="web1"} "maintenance"
-cronjob_status_info{job_name="old_job",host="web2"} "missed_deadline"
+# cronjob_status_info metric has been removed - status is now represented as numeric values:
+# 1=success, 0=failure, -1=maintenance/paused, -2=missed_deadline
 
 # Last execution timestamp
 cronjob_last_run_timestamp{job_name="backup",host="db1"} 1698696960

@@ -27,7 +27,7 @@ type Job struct {
 }
 ```
 
-**Metrics Logic:** Jobs in `maintenance`/`paused` status must emit value `-1` or `status="maintenance"` label in Prometheus output to suppress alerting.
+**Metrics Logic:** Jobs in `maintenance`/`paused` status must emit value `-1` in Prometheus output to suppress alerting.
 
 **CLI Design Pattern:** Use Cobra subcommands: `cronmetrics serve`, `cronmetrics job {add,list,update,delete}`, `cronmetrics config`
 
