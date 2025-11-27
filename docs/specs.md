@@ -112,16 +112,25 @@ curl -X POST http://localhost:8080/api/job-result \
 # TYPE cronjob_status gauge
 
 # Active job with successful result
-cronjob_status{job_name="sync_db",host="web1",env="prod",team="infra",status="success"} 1
+cronjob_status{job_name="sync_db",host="web1",env="prod",team="infra"} 1
 
 # Active job with failed result
-cronjob_status{job_name="backup",host="web2",env="prod",status="failure"} 0
+cronjob_status{job_name="backup",host="web2",env="prod"} 0
 
 # Job that missed its deadline (auto-failed)
-cronjob_status{job_name="cleanup",host="web3",env="prod",status="missed_deadline"} 0
+cronjob_status{job_name="cleanup",host="web3",env="prod"} 0
 
 # Maintenance mode job (no alerting)
-cronjob_status{job_name="db_import",host="backup3",env="stage",status="maintenance"} -1
+cronjob_status{job_name="db_import",host="backup3",env="stage"} -1
+
+# HELP cronjob_status_info Job status information with status description
+# TYPE cronjob_status_info gauge
+
+# Status information for jobs
+cronjob_status_info{job_name="sync_db",host="web1",env="prod",team="infra"} "success"
+cronjob_status_info{job_name="backup",host="web2",env="prod"} "failure"
+cronjob_status_info{job_name="cleanup",host="web3",env="prod"} "missed_deadline"
+cronjob_status_info{job_name="db_import",host="backup3",env="stage"} "maintenance"
 
 # HELP cronjob_last_run_timestamp Timestamp of last job execution
 # TYPE cronjob_last_run_timestamp gauge
@@ -134,10 +143,11 @@ cronjob_total 4
 
 **Key Metrics Features:**
 
-- **Status Labels**: All metrics include `status` labels for precise alerting
-- **User Labels**: Custom job labels are automatically included in metrics
-- **Automatic Failure Detection**: Jobs exceeding thresholds get `status="missed_deadline"`
-- **Maintenance Support**: Maintenance jobs get `status="maintenance"` and value `-1` for alert suppression
+- **Two-Metric Structure**: Numeric status in `cronjob_status`, textual status in `cronjob_status_info`
+- **User Labels**: Custom job labels are automatically included in both metrics
+- **Automatic Failure Detection**: Jobs exceeding thresholds get `status="missed_deadline"` in info metric
+- **Maintenance Support**: Maintenance jobs get value `-1` in status metric and `status="maintenance"` in info metric
+- **Stable Cardinality**: The main `cronjob_status` metric has consistent cardinality per job
 
 ### Authentication System
 

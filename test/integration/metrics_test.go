@@ -95,11 +95,14 @@ func TestMetricsWithJobResults(t *testing.T) {
 		resp := client.GET("/metrics")
 		body := resp.BodyString()
 
-		// Should show successful status (value = 1)
+		// Should show successful status (value = 1) without status label
 		assert.Contains(t, body, `job_name="backup"`)
 		assert.Contains(t, body, `host="db1"`)
 		assert.Contains(t, body, `cronjob_status{job_name="backup",host="db1"`)
 		assert.Contains(t, body, `} 1`)
+		// Should also have status info metric with status as value
+		assert.Contains(t, body, `cronjob_status_info{job_name="backup",host="db1"`)
+		assert.Contains(t, body, `} "success"`) 
 	})
 
 	t.Run("FailedJobMetrics", func(t *testing.T) {
@@ -122,11 +125,14 @@ func TestMetricsWithJobResults(t *testing.T) {
 		resp := client.GET("/metrics")
 		body := resp.BodyString()
 
-		// Should show failed status (value = 0)
+		// Should show failed status (value = 0) without status label
 		assert.Contains(t, body, `job_name="backup"`)
 		assert.Contains(t, body, `host="db1"`)
 		assert.Contains(t, body, `cronjob_status{job_name="backup",host="db1"`)
 		assert.Contains(t, body, `} 0`)
+		// Should also have status info metric with status as value
+		assert.Contains(t, body, `cronjob_status_info{job_name="backup",host="db1"`)
+		assert.Contains(t, body, `} "failure"`)
 	})
 }
 
@@ -188,21 +194,27 @@ func TestMetricsMaintenanceMode(t *testing.T) {
 	assert.Contains(t, body, `job_name="maintenance-job"`)
 	assert.Contains(t, body, `host="app1"`)
 
-	// Should have maintenance status or special value (-1)
+	// Should have maintenance status value (-1) and separate info metric
 	lines := strings.Split(body, "\n")
-	found := false
+	statusFound := false
+	infoFound := false
 	for _, line := range lines {
 		if strings.Contains(line, `job_name="maintenance-job"`) &&
 			strings.Contains(line, `host="app1"`) {
-			found = true
-			// Maintenance jobs should either have status="maintenance" or value -1
-			assert.True(t,
-				strings.Contains(line, `status="maintenance"`) || strings.Contains(line, " -1"),
-				fmt.Sprintf("Maintenance job should have special status, got: %s", line))
-			break
+			if strings.Contains(line, "cronjob_status{") && !strings.Contains(line, "cronjob_status_info{") {
+				// Main status metric should have value -1 and no status label
+				assert.Contains(t, line, " -1", fmt.Sprintf("Maintenance job should have value -1, got: %s", line))
+				assert.NotContains(t, line, `status=`, fmt.Sprintf("cronjob_status should not have status label, got: %s", line))
+				statusFound = true
+			} else if strings.Contains(line, "cronjob_status_info{") {
+				// Info metric should have "maintenance" as value
+				assert.Contains(t, line, `} "maintenance"`, fmt.Sprintf("Info metric should have maintenance as value, got: %s", line))
+				infoFound = true
+			}
 		}
 	}
-	assert.True(t, found, "Could not find metrics line for maintenance-job")
+	assert.True(t, statusFound, "Could not find cronjob_status line for maintenance-job")
+	assert.True(t, infoFound, "Could not find cronjob_status_info line for maintenance-job")
 }
 
 func TestMetricsValidation(t *testing.T) {
@@ -234,8 +246,9 @@ func TestMetricsValidation(t *testing.T) {
 			// Metric lines should have valid format
 			if strings.Contains(line, "cronjob_status") {
 				// Should have metric name, labels, and value
+				// cronjob_status has numeric values, cronjob_status_info has quoted strings
 				assert.Regexp(t,
-					regexp.MustCompile(`cronjob_status\{[^}]+\}\s+[0-9.-]+`),
+					regexp.MustCompile(`cronjob_status(_info)?\{[^}]+\}\s+([0-9.-]+|"[^"]*")`),
 					line,
 					fmt.Sprintf("Line %d: Invalid metric format: %s", i+1, line))
 			}
@@ -246,10 +259,22 @@ func TestMetricsValidation(t *testing.T) {
 		lines := strings.Split(body, "\n")
 
 		for _, line := range lines {
-			if strings.Contains(line, "cronjob_status{") {
-				// Every cronjob_status metric should have required labels
+			if strings.Contains(line, "cronjob_status{") && !strings.Contains(line, "cronjob_status_info{") {
+				// cronjob_status metric should have required labels (but no status label)
 				assert.Contains(t, line, `job_name=`, "Missing job_name label: "+line)
 				assert.Contains(t, line, `host=`, "Missing host label: "+line)
+				assert.NotContains(t, line, `status=`, "cronjob_status should not have status label: "+line)
+
+				// Should have proper label quoting
+				assert.Regexp(t, regexp.MustCompile(`job_name="[^"]+"`), line, "Invalid job_name label format: "+line)
+				assert.Regexp(t, regexp.MustCompile(`host="[^"]+"`), line, "Invalid host label format: "+line)
+			} else if strings.Contains(line, "cronjob_status_info{") {
+				// cronjob_status_info metric should have required labels but status as value
+				assert.Contains(t, line, `job_name=`, "Missing job_name label: "+line)
+				assert.Contains(t, line, `host=`, "Missing host label: "+line)
+				assert.NotContains(t, line, `status=`, "cronjob_status_info should not have status label: "+line)
+				// Should have quoted string value
+				assert.Regexp(t, regexp.MustCompile(`} "[^"]+"$`), line, "cronjob_status_info should have quoted string value: "+line)
 
 				// Should have proper label quoting
 				assert.Regexp(t, regexp.MustCompile(`job_name="[^"]+"`), line, "Invalid job_name label format: "+line)

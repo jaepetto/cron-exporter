@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/sirupsen/logrus"
 )
 
 // Collector implements Prometheus metrics collection for cron jobs
@@ -21,6 +20,7 @@ type Collector struct {
 
 	// Metrics
 	jobStatus       *prometheus.GaugeVec
+	jobStatusInfo   *prometheus.GaugeVec
 	jobStatusReason *prometheus.GaugeVec
 	jobLastRun      *prometheus.GaugeVec
 	jobDuration     *prometheus.GaugeVec
@@ -42,6 +42,14 @@ func NewCollector(jobStore *model.JobStore, jobResultStore *model.JobResultStore
 			Help: "Status of cron job: 1=success, 0=failure, -1=maintenance/paused",
 		},
 		[]string{"job_name", "host"}, // Start with base labels only
+	)
+
+	collector.jobStatusInfo = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "cronjob_status_info",
+			Help: "Job status information with status description",
+		},
+		[]string{"job_name", "host"}, // Info metric without status label
 	)
 
 	collector.jobStatusReason = prometheus.NewGaugeVec(
@@ -80,28 +88,14 @@ func NewCollector(jobStore *model.JobStore, jobResultStore *model.JobResultStore
 
 // Register registers the collector with Prometheus
 func (c *Collector) Register() error {
-	// Register metrics with our custom registry
-	if err := c.registry.Register(c.jobStatus); err != nil {
-		return fmt.Errorf("failed to register job_status metric: %w", err)
-	}
+	// Register metrics with registry
+	c.registry.MustRegister(c.jobStatus)
+	c.registry.MustRegister(c.jobStatusInfo)
+	c.registry.MustRegister(c.jobStatusReason)
+	c.registry.MustRegister(c.jobLastRun)
+	c.registry.MustRegister(c.jobDuration)
+	c.registry.MustRegister(c.totalJobs)
 
-	if err := c.registry.Register(c.jobStatusReason); err != nil {
-		return fmt.Errorf("failed to register job_status_reason metric: %w", err)
-	}
-
-	if err := c.registry.Register(c.jobLastRun); err != nil {
-		return fmt.Errorf("failed to register job_last_run metric: %w", err)
-	}
-
-	if err := c.registry.Register(c.jobDuration); err != nil {
-		return fmt.Errorf("failed to register job_duration metric: %w", err)
-	}
-
-	if err := c.registry.Register(c.totalJobs); err != nil {
-		return fmt.Errorf("failed to register total_jobs metric: %w", err)
-	}
-
-	logrus.Info("prometheus metrics registered successfully")
 	return nil
 }
 
@@ -116,15 +110,15 @@ func (c *Collector) Gather() (string, error) {
 	var builder strings.Builder
 	now := time.Now().UTC()
 
-	// Write help and type comments
+	// Write help and type comments for cronjob_status
 	builder.WriteString("# HELP cronjob_status Status of cron job: 1=success, 0=failure, -1=maintenance/paused\n")
 	builder.WriteString("# TYPE cronjob_status gauge\n")
 
-	// Generate job status metrics
+	// Generate job status metrics (without status label)
 	for _, job := range jobs {
-		status, reason := c.calculateJobStatus(job, now)
+		status, _ := c.calculateJobStatus(job, now)
 
-		// Build labels string
+		// Build labels string for cronjob_status (no status label)
 		var labels []string
 		labels = append(labels, fmt.Sprintf(`job_name="%s"`, job.Name))
 		labels = append(labels, fmt.Sprintf(`host="%s"`, job.Host))
@@ -134,13 +128,33 @@ func (c *Collector) Gather() (string, error) {
 			labels = append(labels, fmt.Sprintf(`%s="%s"`, k, v))
 		}
 
-		// Always add status label based on the calculated reason
-		if reason != "" {
-			labels = append(labels, fmt.Sprintf(`status="%s"`, reason))
+		labelsStr := strings.Join(labels, ",")
+		builder.WriteString(fmt.Sprintf("cronjob_status{%s} %g\n", labelsStr, status))
+	}
+
+	// Write help and type comments for cronjob_status_info
+	builder.WriteString("# HELP cronjob_status_info Job status information with status description\n")
+	builder.WriteString("# TYPE cronjob_status_info gauge\n")
+
+	// Generate job status info metrics (with status as value)
+	for _, job := range jobs {
+		_, reason := c.calculateJobStatus(job, now)
+
+		// Build labels string for cronjob_status_info (no status label)
+		var labels []string
+		labels = append(labels, fmt.Sprintf(`job_name="%s"`, job.Name))
+		labels = append(labels, fmt.Sprintf(`host="%s"`, job.Host))
+
+		// Add user-defined labels
+		for k, v := range job.Labels {
+			labels = append(labels, fmt.Sprintf(`%s="%s"`, k, v))
 		}
 
 		labelsStr := strings.Join(labels, ",")
-		builder.WriteString(fmt.Sprintf("cronjob_status{%s} %g\n", labelsStr, status))
+		// Use status as the metric value instead of label
+		if reason != "" {
+			builder.WriteString(fmt.Sprintf("cronjob_status_info{%s} \"%s\"\n", labelsStr, reason))
+		}
 	}
 
 	// Write last run timestamps
@@ -170,6 +184,7 @@ func (c *Collector) Handler() http.Handler {
 func (c *Collector) updateMetrics() error {
 	// Clear existing metrics
 	c.jobStatus.Reset()
+	c.jobStatusInfo.Reset()
 	c.jobStatusReason.Reset()
 	c.jobLastRun.Reset()
 	c.jobDuration.Reset()
@@ -199,8 +214,11 @@ func (c *Collector) updateMetrics() error {
 		// Determine job status and reason
 		status, reason := c.calculateJobStatus(job, now)
 
-		// Set status metric with all labels
+		// Set status metric with all labels (excluding status)
 		c.jobStatus.With(statusLabels).Set(status)
+
+		// Set status info metric with status as value (not implemented via Prometheus client)
+		// Status info metric is generated manually in Gather() method with string values
 
 		// Set reason metric if there's a specific reason
 		if reason != "" {

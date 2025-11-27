@@ -294,12 +294,16 @@ The `/metrics` endpoint provides:
 # Job status: 1=success, 0=failure, -1=maintenance/paused
 cronjob_status{job_name="backup",host="db1",env="prod",team="infra"} 1
 
-# Jobs in maintenance mode
-cronjob_status{job_name="maintenance_job",host="web1",status="maintenance"} -1
+# Jobs in maintenance mode  
+cronjob_status{job_name="maintenance_job",host="web1"} -1
 
 # Auto-failed jobs (exceeded threshold)
 cronjob_status{job_name="old_job",host="web2"} 0
-cronjob_status_reason{job_name="old_job",host="web2",reason="missed_deadline"} 1
+
+# Job status information with textual descriptions
+cronjob_status_info{job_name="backup",host="db1",env="prod",team="infra"} "success"
+cronjob_status_info{job_name="maintenance_job",host="web1"} "maintenance"
+cronjob_status_info{job_name="old_job",host="web2"} "missed_deadline"
 
 # Last execution timestamp
 cronjob_last_run_timestamp{job_name="backup",host="db1"} 1698696960
