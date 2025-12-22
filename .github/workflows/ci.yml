@@ -21,7 +21,7 @@ jobs:
         go-version: '1.24.9'
 
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '25.1.0'
         cache: 'npm'
@@ -85,7 +85,7 @@ jobs:
         go-version: '1.24.9'
 
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '25.1.0'
         cache: 'npm'
