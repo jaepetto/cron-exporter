@@ -65,8 +65,9 @@ function JobEditor({ mode, id, initialForm }: { mode: 'create' | 'edit'; id: num
     setError(undefined);
     let labels: Record<string, string>;
     try {
-      labels = JSON.parse(form.labels) as Record<string, string>;
-      if (Array.isArray(labels) || labels === null || Object.values(labels).some((value) => typeof value !== 'string')) throw new Error();
+      const parsedLabels: unknown = JSON.parse(form.labels);
+      if (typeof parsedLabels !== 'object' || parsedLabels === null || Array.isArray(parsedLabels) || Object.values(parsedLabels).some((value) => typeof value !== 'string')) throw new Error();
+      labels = parsedLabels as Record<string, string>;
     } catch {
       setFields({ labels: 'Enter a JSON object whose values are strings.' });
       return;

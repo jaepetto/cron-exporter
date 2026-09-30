@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import type { Job, JobsQuery } from '../api/client';
 import { Button, ErrorState, LoadingState, SelectField, StatusBadge } from '../components/ui';
-import { useJobs } from '../hooks/useJobs';
+import { useJobs, useRuntimeConfig } from '../hooks/useJobs';
 import { formatRelativeTime, formatThreshold, isJobOverdue } from '../lib/jobs';
 
 const statusOptions = [
@@ -15,6 +15,7 @@ const statusOptions = [
 ];
 
 export function JobsPage() {
+  const runtime = useRuntimeConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get('q') ?? '';
   const deferredSearch = useDeferredValue(search);
@@ -24,7 +25,7 @@ export function JobsPage() {
     q: deferredSearch || undefined,
     status: statusValue === 'all' ? undefined : statusValue as JobsQuery['status'],
     page,
-    page_size: 25,
+    page_size: runtime.data?.page_size ?? 25,
   };
   const jobs = useJobs(query);
 

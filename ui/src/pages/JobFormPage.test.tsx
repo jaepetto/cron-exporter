@@ -18,10 +18,10 @@ vi.mock('../hooks/useJobs', () => ({
 describe('JobFormPage', () => {
   beforeEach(() => createJob.mockReset());
 
-  it('rejects labels that are not a string-valued object', async () => {
+  it.each(['[]', '1', 'true', '"label"'])('rejects non-object labels JSON %s', async (labels) => {
     const user = userEvent.setup();
     render(<MemoryRouter><JobFormPage mode="create" /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText('Labels (JSON)'), { target: { value: '[]' } });
+    fireEvent.change(screen.getByLabelText('Labels (JSON)'), { target: { value: labels } });
 
     await user.click(screen.getByRole('button', { name: 'Save job' }));
 

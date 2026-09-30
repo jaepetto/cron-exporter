@@ -6,7 +6,11 @@ import type { JobSearchResult } from '../api/client';
 import { JobsPage } from './JobsPage';
 
 const useJobs = vi.fn();
-vi.mock('../hooks/useJobs', () => ({ useJobs: (...args: unknown[]) => useJobs(...args) }));
+const useRuntimeConfig = vi.fn();
+vi.mock('../hooks/useJobs', () => ({
+  useJobs: (...args: unknown[]) => useJobs(...args),
+  useRuntimeConfig: (...args: unknown[]) => useRuntimeConfig(...args),
+}));
 
 const result: JobSearchResult = {
   jobs: [{
@@ -29,7 +33,10 @@ const result: JobSearchResult = {
 };
 
 describe('JobsPage', () => {
-  beforeEach(() => useJobs.mockReset());
+  beforeEach(() => {
+    useJobs.mockReset();
+    useRuntimeConfig.mockReturnValue({ data: { page_size: 25 } });
+  });
 
   it('renders job data in desktop and mobile representations', () => {
     useJobs.mockReturnValue({ data: result, isLoading: false, error: undefined, mutate: vi.fn() });
@@ -46,5 +53,13 @@ describe('JobsPage', () => {
     render(<MemoryRouter><JobsPage /></MemoryRouter>);
 
     expect(screen.getByRole('heading', { name: 'No jobs found' })).toBeInTheDocument();
+  });
+
+  it('uses the configured page size', () => {
+    useRuntimeConfig.mockReturnValue({ data: { page_size: 40 } });
+    useJobs.mockReturnValue({ data: result, isLoading: false, error: undefined, mutate: vi.fn() });
+    render(<MemoryRouter><JobsPage /></MemoryRouter>);
+
+    expect(useJobs).toHaveBeenCalledWith(expect.objectContaining({ page_size: 40 }));
   });
 });

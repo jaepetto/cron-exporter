@@ -84,14 +84,18 @@ func NewBroadcaster(config *config.DashboardConfig, logger *logrus.Logger) *Broa
 // run starts the broadcaster event loop
 func (b *Broadcaster) run() {
 	defer close(b.done)
-	ticker := time.NewTicker(time.Duration(b.config.SSEHeartbeat) * time.Second)
-	defer ticker.Stop()
+	var heartbeat <-chan time.Time
+	if b.config.SSEEnabled && b.config.SSEHeartbeat > 0 {
+		ticker := time.NewTicker(time.Duration(b.config.SSEHeartbeat) * time.Second)
+		defer ticker.Stop()
+		heartbeat = ticker.C
+	}
 
 	for {
 		select {
 		case event := <-b.events:
 			b.broadcast(event)
-		case <-ticker.C:
+		case <-heartbeat:
 			b.sendHeartbeat()
 		case <-b.quit:
 			b.closeAllClients()

@@ -138,6 +138,36 @@ func TestJobStatusAPI(t *testing.T) {
 	require.False(t, status.IsFailure)
 }
 
+func TestJobStatusAPIDoesNotFlagSuppressedJobsAsFailures(t *testing.T) {
+	for _, jobStatus := range []string{"maintenance", "paused"} {
+		t.Run(jobStatus, func(t *testing.T) {
+			dashboard, jobStore := newTestDashboard(t)
+			job := &model.Job{
+				Name:                      "nightly-backup",
+				Host:                      "db01",
+				ApiKey:                    "cm_test_job_key",
+				AutomaticFailureThreshold: 3600,
+				Labels:                    map[string]string{},
+				Status:                    jobStatus,
+				LastReportedAt:            time.Now().Add(-2 * time.Hour),
+			}
+			require.NoError(t, jobStore.CreateJob(job))
+
+			response := performDashboardRequest(t, dashboard, http.MethodGet, "/api/jobs/"+strconv.Itoa(job.ID)+"/status", true)
+			require.Equal(t, http.StatusOK, response.Code)
+
+			var status JobStatusUpdate
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &status))
+			require.False(t, status.IsFailure)
+		})
+	}
+}
+
+func TestBroadcasterAllowsDisabledSSEWithoutHeartbeat(t *testing.T) {
+	broadcaster := NewBroadcaster(&config.DashboardConfig{SSEEnabled: false}, logrus.New())
+	broadcaster.Stop()
+}
+
 func TestDashboardJobAPIWorkflow(t *testing.T) {
 	dashboard, _ := newTestDashboard(t)
 

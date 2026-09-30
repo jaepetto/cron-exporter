@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed label filtering so SQL counts and pagination match returned rows
 - Fixed empty job collections serializing as `null` instead of `[]`
 - Fixed stale generated frontend assets being silently embedded into release binaries
+- Prevented disabled SSE from creating zero-interval heartbeat tickers
+- Preserved job API keys on empty updates and excluded maintenance/paused jobs from overdue failures
+- Revalidated dashboard job caches after SSE reconnects and limited fallback polling to disconnected clients
+- Honored the configured dashboard page size and rejected primitive labels JSON
 - Fixed the production image healthcheck calling a nonexistent `version` command
 - Fixed concurrent SQLite writes failing immediately with `SQLITE_BUSY` by enabling WAL and a per-connection busy timeout
 

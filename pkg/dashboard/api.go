@@ -261,5 +261,5 @@ func parseJobSearchCriteria(c *gin.Context) (model.JobSearchCriteria, map[string
 }
 
 func isJobOverdue(job *model.Job, now time.Time) bool {
-	return job.AutomaticFailureThreshold > 0 && now.Sub(job.LastReportedAt) > time.Duration(job.AutomaticFailureThreshold)*time.Second
+	return job.Status == "active" && job.AutomaticFailureThreshold > 0 && now.Sub(job.LastReportedAt) > time.Duration(job.AutomaticFailureThreshold)*time.Second
 }

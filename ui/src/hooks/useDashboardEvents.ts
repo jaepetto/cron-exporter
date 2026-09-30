@@ -7,6 +7,10 @@ import { useRuntimeConfig } from './useJobs';
 
 const invalidationEvents = ['job-status-change', 'job-created', 'job-updated', 'job-deleted', 'reset'] as const;
 
+function isJobCacheKey(key: unknown) {
+  return Array.isArray(key) && (key[0] === 'jobs' || key[0] === 'job');
+}
+
 export function useDashboardEvents() {
   const { mutate } = useSWRConfig();
   const runtime = useRuntimeConfig();
@@ -33,13 +37,20 @@ export function useDashboardEvents() {
     };
     const markConnected = () => setConnected(true);
     const markDisconnected = () => setConnected(false);
+    const handleOpen = () => {
+      markConnected();
+      void mutate(isJobCacheKey);
+    };
 
     source.addEventListener('connected', markConnected);
-    source.addEventListener('open', markConnected);
+    source.addEventListener('open', handleOpen);
     source.addEventListener('error', markDisconnected);
     invalidationEvents.forEach((eventType) => source.addEventListener(eventType, invalidate));
 
     return () => {
+      source.removeEventListener('connected', markConnected);
+      source.removeEventListener('open', handleOpen);
+      source.removeEventListener('error', markDisconnected);
       invalidationEvents.forEach((eventType) => source.removeEventListener(eventType, invalidate));
       source.close();
     };

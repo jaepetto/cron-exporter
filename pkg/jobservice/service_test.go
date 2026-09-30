@@ -76,6 +76,18 @@ func TestUpdateAndToggleMaintenance(t *testing.T) {
 	require.Equal(t, "active", toggled.Status)
 }
 
+func TestUpdateWithEmptyAPIKeyPreservesExistingKey(t *testing.T) {
+	service := newTestService(t)
+	job, err := service.Create(CreateJobInput{Name: "backup", Host: "db01", APIKey: "existing-key"})
+	require.NoError(t, err)
+
+	emptyAPIKey := ""
+	updated, err := service.Update(job.ID, UpdateJobInput{APIKey: &emptyAPIKey})
+
+	require.NoError(t, err)
+	require.Equal(t, "existing-key", updated.ApiKey)
+}
+
 func TestDeleteReturnsNotFound(t *testing.T) {
 	service := newTestService(t)
 

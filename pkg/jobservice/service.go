@@ -171,7 +171,7 @@ func (s *Service) Update(id int, input UpdateJobInput) (*model.Job, error) {
 	if input.Host != nil {
 		job.Host = strings.TrimSpace(*input.Host)
 	}
-	if input.APIKey != nil {
+	if input.APIKey != nil && *input.APIKey != "" {
 		job.ApiKey = *input.APIKey
 	}
 	if input.AutomaticFailureThreshold != nil {
