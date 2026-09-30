@@ -1,9 +1,9 @@
 import { Activity, ListChecks, Moon, Plus, Sun, SunMoon } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 
-import { embeddedConfig } from '../lib/runtime';
 import { useDashboardEvents } from '../hooks/useDashboardEvents';
 import { type Theme, useTheme } from '../hooks/useTheme';
+import { embeddedConfig } from '../lib/runtime';
 import { SelectField } from './ui';
 
 const themeOptions: Array<{ value: Theme; label: string }> = [

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSWRConfig } from 'swr';
 
 import { deleteJob, toggleJob } from '../api/client';
-import { ConfirmDialog, Button, ErrorState, LoadingState, StatusBadge } from '../components/ui';
+import { Button, ConfirmDialog, ErrorState, LoadingState, StatusBadge } from '../components/ui';
 import { useJob } from '../hooks/useJobs';
 import { formatRelativeTime, formatThreshold, isJobOverdue } from '../lib/jobs';
 

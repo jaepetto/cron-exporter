@@ -1,7 +1,7 @@
 import createClient from 'openapi-fetch';
 
-import type { components, paths } from './schema';
 import { embeddedConfig } from '../lib/runtime';
+import type { components, paths } from './schema';
 
 export type Job = components['schemas']['Job'];
 export type JobSearchResult = components['schemas']['JobSearchResult'];
