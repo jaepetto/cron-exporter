@@ -24,8 +24,8 @@ A Go-based API and web server to centralize cron job results and export their st
 
 ### Prerequisites
 
-- Go 1.21+ (managed via mise)
-- No system dependencies required (pure Go SQLite implementation)
+- Go and Node.js versions managed by mise
+- No runtime system dependencies (SQLite and portal assets are embedded)
 
 ### Installation
 
@@ -39,6 +39,7 @@ cd cron-exporter
 ```bash
 mise install  # Installs Go version from .tool-versions
 go mod tidy
+mise run ui-install
 ```
 
 3. Build the application:
@@ -149,7 +150,14 @@ dashboard:
   enabled: true
   path: "/dashboard"          # Dashboard URL path
   auth_required: true         # Require admin API key
-  title: "Cron Metrics"      # Dashboard title
+  title: "Cron Metrics"       # Dashboard title
+  page_size: 25
+  sse_enabled: true
+  sse_timeout: 300
+  sse_heartbeat: 30
+  sse_max_clients: 100
+  polling_fallback: true
+  polling_interval: 5
 ```
 
 ### Access Dashboard
@@ -157,14 +165,11 @@ dashboard:
 Visit `http://localhost:8080/dashboard` to access:
 
 - **Job overview** with real-time status monitoring
-- **Visual deadline indicators** showing job health at a glance:
-  - 🟢 **Green**: Job reported within deadline (on time)
-  - 🟡 **Yellow**: Job approaching deadline (80% of threshold)
-  - 🔴 **Red**: Job missed deadline (past AutomaticFailureThreshold)
-  - ⚫ **Gray**: Job in maintenance or paused status
+- **Visual deadline indicators** showing active, overdue, maintenance, and paused states
 - **Search and filtering** by job name, host, or labels
-- **Job management** - create, edit, toggle maintenance mode
-- **Real-time updates** via Server-Sent Events or polling fallback
+- **Job management** - create, edit, delete, and toggle maintenance mode
+- **Real-time cache invalidation** via Server-Sent Events with polling fallback
+- **Light, dark, and system themes** persisted in the browser
 
 #### Dashboard Authentication
 
@@ -193,6 +198,8 @@ curl -u admin:test-admin-key-12345 http://localhost:8080/dashboard/
 - **Maintenance mode controls** for suppressing alerts
 - **Pagination** for large job lists
 - **Authentication** with admin API keys
+
+The portal is a React and TypeScript application compiled into content-hashed assets and embedded in the Go binary. The browser uses protected same-origin `/dashboard/api/*` endpoints, so admin keys remain in browser-managed HTTP Basic credentials and are never stored by JavaScript.
 
 ## Usage
 
@@ -244,6 +251,8 @@ curl -u admin:test-admin-key-12345 http://localhost:8080/dashboard/
 # Show detailed job information (includes full API key)
 ./bin/cronmetrics job show 1
 ```
+
+CLI JSON output omits API keys. Use the text-form `job show` command to retrieve a key.
 
 #### Update a job
 ```bash

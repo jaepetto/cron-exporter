@@ -1,5 +1,16 @@
-# Build stage
-FROM golang:1.25.3-alpine AS builder
+FROM node:25.1.0-alpine AS ui-builder
+
+WORKDIR /app
+
+COPY ui/package.json ui/package-lock.json ./ui/
+RUN npm ci --prefix ui
+
+COPY docs/openapi.yaml ./docs/openapi.yaml
+COPY ui ./ui
+RUN npm --prefix ui run build
+
+# Go build stage
+FROM golang:1.26.8-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -15,6 +26,9 @@ RUN go mod download
 
 # Copy source code
 COPY . .
+
+# Copy freshly generated portal assets after source files
+COPY --from=ui-builder /app/pkg/dashboard/web ./pkg/dashboard/web
 
 # Build the application with static linking (pure Go)
 RUN CGO_ENABLED=0 GOOS=linux go build \
@@ -48,7 +62,7 @@ ENV CRONMETRICS_METRICS_PORT=9090
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/cronmetrics", "version"] || exit 1
+    CMD ["/cronmetrics", "--help"]
 
 # Run as non-root user
 USER 65534:65534

@@ -54,6 +54,32 @@ var (
 	jobStatus    string
 )
 
+type jobJSONOutput struct {
+	ID                        int               `json:"id"`
+	Name                      string            `json:"job_name"`
+	Host                      string            `json:"host"`
+	AutomaticFailureThreshold int               `json:"automatic_failure_threshold"`
+	Labels                    map[string]string `json:"labels"`
+	Status                    string            `json:"status"`
+	LastReportedAt            time.Time         `json:"last_reported_at"`
+	CreatedAt                 time.Time         `json:"created_at"`
+	UpdatedAt                 time.Time         `json:"updated_at"`
+}
+
+func toJobJSONOutput(job *model.Job) jobJSONOutput {
+	return jobJSONOutput{
+		ID:                        job.ID,
+		Name:                      job.Name,
+		Host:                      job.Host,
+		AutomaticFailureThreshold: job.AutomaticFailureThreshold,
+		Labels:                    job.Labels,
+		Status:                    job.Status,
+		LastReportedAt:            job.LastReportedAt,
+		CreatedAt:                 job.CreatedAt,
+		UpdatedAt:                 job.UpdatedAt,
+	}
+}
+
 func init() {
 	jobAddCmd.Flags().StringVarP(&jobName, "name", "n", "", "job name (required)")
 	jobAddCmd.Flags().StringVar(&jobHost, "host", "", "host name (required)")
@@ -183,7 +209,11 @@ func runJobList(cmd *cobra.Command) error {
 	}
 
 	if outputJSON {
-		output, err := json.MarshalIndent(jobs, "", "  ")
+		outputJobs := make([]jobJSONOutput, len(jobs))
+		for index, job := range jobs {
+			outputJobs[index] = toJobJSONOutput(job)
+		}
+		output, err := json.MarshalIndent(outputJobs, "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}
@@ -388,7 +418,7 @@ func runJobShow(cmd *cobra.Command, args []string) error {
 	}
 
 	if outputJSON {
-		output, err := json.MarshalIndent(job, "", "  ")
+		output, err := json.MarshalIndent(toJobJSONOutput(job), "", "  ")
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON: %w", err)
 		}

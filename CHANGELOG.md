@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Replaced the Gin template and HTMX dashboard with a clean-room React 19 and TypeScript portal
+  - Preserves the configurable dashboard path, HTTP Basic authentication, SQLite storage, and single-binary deployment
+  - Adds typed same-origin dashboard APIs generated from the OpenAPI specification
+  - Adds responsive desktop/mobile layouts and light, dark, and system themes
+  - Builds content-hashed assets with Vite and embeds them into the Go binary
+  - Uses Dagu only as an architectural reference; no GPL-licensed source or assets were copied
+- Dashboard and public API job mutations now share validation and application behavior
+- Dashboard builds now run automatically in mise, Docker, CI, cross-platform, and release workflows
+
+### Added
+
+- Dashboard API endpoints for paginated search, detail, create, update, delete, maintenance toggle, and runtime configuration
+- Reliable SSE invalidation events with event IDs, explicit flushing, heartbeat, client limits, and slow-client recovery
+- Dashboard backend regressions, React unit/component tests, and Playwright workflows across Chromium, Firefox, and WebKit
+- Dashboard configuration validation for reserved paths and invalid realtime limits
+
+### Fixed
+
+- Updated gosec, Go toolchains, and vulnerable Go dependencies; omitted job API keys from CLI JSON output
+- Replaced credential-like API key values in test fixtures with synthetic labels
+- Implemented the previously stubbed dashboard job-status endpoint
+- Fixed label filtering so SQL counts and pagination match returned rows
+- Fixed empty job collections serializing as `null` instead of `[]`
+- Fixed stale generated frontend assets being silently embedded into release binaries
+- Prevented disabled SSE from creating zero-interval heartbeat tickers
+- Preserved job API keys on empty updates and excluded maintenance/paused jobs from overdue failures
+- Revalidated dashboard job caches after SSE reconnects and limited fallback polling to disconnected clients
+- Honored the configured dashboard page size and rejected primitive labels JSON
+- Fixed the production image healthcheck calling a nonexistent `version` command
+- Fixed concurrent SQLite writes failing immediately with `SQLITE_BUSY` by enabling WAL and a per-connection busy timeout
+
 - **BREAKING**: Removed `cronjob_status_info` metric to fix Prometheus parsing issues
   - All status information is now represented as numeric values in `cronjob_status` metric only
   - Status values: `1`=success, `0`=failure, `-1`=maintenance/paused, `-2`=missed_deadline

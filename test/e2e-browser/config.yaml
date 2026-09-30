@@ -1,0 +1,39 @@
+server:
+  host: "127.0.0.1"
+  port: 18080
+  read_timeout: 30
+  write_timeout: 30
+  idle_timeout: 120
+
+database:
+  path: "/tmp/cronmetrics_portal_e2e.db"
+  max_open_conns: 10
+  max_idle_conns: 2
+  conn_max_lifetime: 300
+
+metrics:
+  path: "/metrics"
+
+logging:
+  level: "warn"
+  format: "json"
+  output: "stdout"
+
+security:
+  require_https: false
+  admin_api_keys:
+    - "portal-e2e-admin-key"
+
+dashboard:
+  enabled: true
+  path: "/dashboard"
+  title: "Cronmetrics E2E"
+  refresh_interval: 5
+  page_size: 25
+  auth_required: true
+  sse_enabled: true
+  sse_timeout: 120
+  sse_heartbeat: 10
+  sse_max_clients: 20
+  polling_fallback: true
+  polling_interval: 2

@@ -113,7 +113,7 @@ func (td *TestDatabase) SeedTestData() {
 			threshold: 3600,
 			labels:    map[string]string{"env": "prod", "type": "backup"},
 			status:    "active",
-			apiKey:    "cm_test_backup_key",
+			apiKey:    "fixture-alpha",
 		},
 		{
 			name:      "log-rotation",
@@ -121,7 +121,7 @@ func (td *TestDatabase) SeedTestData() {
 			threshold: 1800,
 			labels:    map[string]string{"env": "prod", "type": "maintenance"},
 			status:    "active",
-			apiKey:    "cm_test_logrotation_key",
+			apiKey:    "fixture-beta",
 		},
 		{
 			name:      "maintenance-job",
@@ -129,7 +129,7 @@ func (td *TestDatabase) SeedTestData() {
 			threshold: 7200,
 			labels:    map[string]string{"env": "staging"},
 			status:    "maintenance",
-			apiKey:    "cm_test_maintenance_key",
+			apiKey:    "fixture-gamma",
 		},
 	}
 

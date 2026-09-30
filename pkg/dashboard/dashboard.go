@@ -27,9 +27,6 @@ func New(cfg *config.DashboardConfig, jobStore *model.JobStore, adminAPIKeys []s
 	router.Use(gin.Recovery())
 	router.Use(SecurityHeadersMiddleware())
 
-	// Set up HTML templates using Gin's template renderer
-	router.SetHTMLTemplate(LoadTemplates())
-
 	// Create handler
 	handler := NewHandler(cfg, jobStore, logger)
 

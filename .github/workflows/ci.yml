@@ -18,19 +18,23 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24.9'
+        go-version: '1.26.8'
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '25.1.0'
         cache: 'npm'
+        cache-dependency-path: ui/package-lock.json
 
     - name: Install mise
       uses: jdx/mise-action@v3
 
     - name: Install npm dependencies
-      run: npm ci
+      run: mise run ui-install
+
+    - name: Check portal
+      run: mise run ui-check
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -60,6 +64,13 @@ jobs:
     - name: Run e2e tests
       run: mise run test-e2e
 
+    - name: Install Playwright browsers
+      working-directory: ui
+      run: npx playwright install --with-deps chromium firefox webkit
+
+    - name: Run portal browser tests
+      run: mise run ui-e2e
+
     - name: Generate test coverage
       run: mise run test-coverage
 
@@ -82,19 +93,20 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24.9'
+        go-version: '1.26.8'
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '25.1.0'
         cache: 'npm'
+        cache-dependency-path: ui/package-lock.json
 
     - name: Install mise
       uses: jdx/mise-action@v3
 
     - name: Install npm dependencies
-      run: npm ci
+      run: mise run ui-install
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -136,12 +148,12 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24.9'
+        go-version: '1.26.8'
 
     - name: Run Gosec Security Scanner
-      uses: securego/gosec@v2.15.0
+      uses: securego/gosec@v2.29.0
       with:
-        args: './...'
+        args: '-exclude-dir=ui ./...'
 
     - name: Run govulncheck
       run: |

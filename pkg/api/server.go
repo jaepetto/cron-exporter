@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,9 +14,9 @@ import (
 
 	"github.com/jaepetto/cron-exporter/pkg/config"
 	"github.com/jaepetto/cron-exporter/pkg/dashboard"
+	"github.com/jaepetto/cron-exporter/pkg/jobservice"
 	"github.com/jaepetto/cron-exporter/pkg/metrics"
 	"github.com/jaepetto/cron-exporter/pkg/model"
-	"github.com/jaepetto/cron-exporter/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,6 +24,7 @@ import (
 type Server struct {
 	config         *config.Config
 	jobStore       *model.JobStore
+	jobService     *jobservice.Service
 	jobResultStore *model.JobResultStore
 	metrics        *metrics.Collector
 	dashboard      *dashboard.Dashboard
@@ -33,6 +35,7 @@ func NewServer(cfg *config.Config, jobStore *model.JobStore, jobResultStore *mod
 	server := &Server{
 		config:         cfg,
 		jobStore:       jobStore,
+		jobService:     jobservice.New(jobStore),
 		jobResultStore: jobResultStore,
 		metrics:        metricsCollector,
 	}
@@ -76,7 +79,7 @@ func (s *Server) Handler() http.Handler {
 
 	// Mount dashboard if enabled
 	if s.dashboard != nil && s.dashboard.IsEnabled() {
-		// Mount Gin router as sub-handler
+		mux.Handle(s.config.Dashboard.Path, http.RedirectHandler(s.config.Dashboard.Path+"/", http.StatusPermanentRedirect))
 		mux.Handle(s.config.Dashboard.Path+"/", http.StripPrefix(s.config.Dashboard.Path, s.dashboard.Router()))
 	}
 
@@ -196,6 +199,12 @@ type responseWriter struct {
 	statusCode int
 }
 
+func (rw *responseWriter) Flush() {
+	if flusher, ok := rw.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
@@ -250,46 +259,15 @@ func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var job model.Job
-	if err := json.NewDecoder(r.Body).Decode(&job); err != nil {
+	var input jobservice.CreateJobInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		s.writeErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 		return
 	}
 
-	// Validate required fields
-	if job.Name == "" || job.Host == "" {
-		s.writeErrorResponse(w, http.StatusBadRequest, "job name and host are required")
-		return
-	}
-
-	// Generate API key if not provided
-	if job.ApiKey == "" {
-		apiKey, err := util.GenerateAPIKey()
-		if err != nil {
-			s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to generate API key: %v", err))
-			return
-		}
-		job.ApiKey = apiKey
-	}
-
-	// Set defaults
-	if job.AutomaticFailureThreshold == 0 {
-		job.AutomaticFailureThreshold = 3600
-	}
-	if job.Status == "" {
-		job.Status = "active"
-	}
-	if job.Labels == nil {
-		job.Labels = make(map[string]string)
-	}
-	job.LastReportedAt = time.Now().UTC()
-
-	if err := s.jobStore.CreateJob(&job); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			s.writeErrorResponse(w, http.StatusConflict, "job already exists")
-			return
-		}
-		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to create job: %v", err))
+	job, err := s.jobService.Create(input)
+	if err != nil {
+		s.writeJobServiceError(w, err)
 		return
 	}
 
@@ -320,13 +298,9 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 
 // handleGetJobByID retrieves a specific job by ID
 func (s *Server) handleGetJobByID(w http.ResponseWriter, r *http.Request, jobID int) {
-	job, err := s.jobStore.GetJobByID(jobID)
+	job, err := s.jobService.Get(jobID)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			s.writeErrorResponse(w, http.StatusNotFound, "job not found")
-			return
-		}
-		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to get job: %v", err))
+		s.writeJobServiceError(w, err)
 		return
 	}
 
@@ -356,49 +330,19 @@ func (s *Server) handleUpdateJobByID(w http.ResponseWriter, r *http.Request, job
 		return
 	}
 
-	// Get existing job
-	existingJob, err := s.jobStore.GetJobByID(jobID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			s.writeErrorResponse(w, http.StatusNotFound, "job not found")
-			return
-		}
-		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to get job: %v", err))
-		return
-	}
-
-	var updateData model.Job
-	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
+	var input jobservice.UpdateJobInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		s.writeErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 		return
 	}
 
-	// Update only provided fields
-	if updateData.Name != "" {
-		existingJob.Name = updateData.Name
-	}
-	if updateData.Host != "" {
-		existingJob.Host = updateData.Host
-	}
-	if updateData.ApiKey != "" {
-		existingJob.ApiKey = updateData.ApiKey
-	}
-	if updateData.AutomaticFailureThreshold > 0 {
-		existingJob.AutomaticFailureThreshold = updateData.AutomaticFailureThreshold
-	}
-	if updateData.Labels != nil {
-		existingJob.Labels = updateData.Labels
-	}
-	if updateData.Status != "" {
-		existingJob.Status = updateData.Status
-	}
-
-	if err := s.jobStore.UpdateJobByID(existingJob); err != nil {
-		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to update job: %v", err))
+	job, err := s.jobService.Update(jobID, input)
+	if err != nil {
+		s.writeJobServiceError(w, err)
 		return
 	}
 
-	s.writeJSONResponse(w, http.StatusOK, existingJob)
+	s.writeJSONResponse(w, http.StatusOK, job)
 }
 
 // handleUpdateJob updates a job (kept for backward compatibility)
@@ -456,12 +400,8 @@ func (s *Server) handleDeleteJobByID(w http.ResponseWriter, r *http.Request, job
 		return
 	}
 
-	if err := s.jobStore.DeleteJobByID(jobID); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			s.writeErrorResponse(w, http.StatusNotFound, "job not found")
-			return
-		}
-		s.writeErrorResponse(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete job: %v", err))
+	if _, err := s.jobService.Delete(jobID); err != nil {
+		s.writeJobServiceError(w, err)
 		return
 	}
 
@@ -696,4 +636,32 @@ func (s *Server) writeErrorResponse(w http.ResponseWriter, statusCode int, messa
 	}
 
 	s.writeJSONResponse(w, statusCode, errorResponse)
+}
+
+func (s *Server) writeJobServiceError(w http.ResponseWriter, err error) {
+	var serviceError *jobservice.Error
+	if !errors.As(err, &serviceError) {
+		s.writeErrorResponse(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	statusCode := http.StatusInternalServerError
+	switch serviceError.Kind {
+	case jobservice.ErrorValidation:
+		statusCode = http.StatusBadRequest
+	case jobservice.ErrorNotFound:
+		statusCode = http.StatusNotFound
+	case jobservice.ErrorConflict:
+		statusCode = http.StatusConflict
+	}
+
+	response := map[string]interface{}{
+		"error":     serviceError.Message,
+		"code":      serviceError.Kind,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+	if len(serviceError.Fields) > 0 {
+		response["fields"] = serviceError.Fields
+	}
+	s.writeJSONResponse(w, statusCode, response)
 }

@@ -174,7 +174,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("SuccessfulJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -200,7 +200,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("FailedJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -223,7 +223,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("InvalidJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -241,7 +241,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("MissingJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -266,7 +266,7 @@ func TestMetricsEndpoint(t *testing.T) {
 	// Submit some results to generate metrics
 	resultClient := testutil.NewHTTPClient(t, server.URL()).
 		WithHeaders(map[string]string{
-			"X-API-Key":    "cm_test_backup_key",
+			"X-API-Key":    "fixture-alpha",
 			"Content-Type": "application/json",
 		})
 
@@ -313,7 +313,7 @@ func TestJobCRUDValidation(t *testing.T) {
 
 		client.POST("/api/job", jobRequest).
 			ExpectStatus(400).
-			ExpectContains("job name and host are required")
+			ExpectContains(`"job_name":"is required"`)
 	})
 
 	t.Run("CreateJobMissingHost", func(t *testing.T) {
@@ -324,7 +324,7 @@ func TestJobCRUDValidation(t *testing.T) {
 
 		client.POST("/api/job", jobRequest).
 			ExpectStatus(400).
-			ExpectContains("job name and host are required")
+			ExpectContains(`"host":"is required"`)
 	})
 
 	t.Run("CreateJobWithNegativeThreshold", func(t *testing.T) {
@@ -334,10 +334,9 @@ func TestJobCRUDValidation(t *testing.T) {
 			"automatic_failure_threshold": -1,
 		}
 
-		// API currently allows negative thresholds
-		var job map[string]interface{}
-		client.POST("/api/job", jobRequest).ExpectStatus(201).ExpectJSON(&job)
-		assert.Equal(t, -1, int(job["automatic_failure_threshold"].(float64)))
+		client.POST("/api/job", jobRequest).
+			ExpectStatus(400).
+			ExpectContains(`"automatic_failure_threshold":"must be greater than zero"`)
 	})
 
 	t.Run("CreateJobWithCustomStatus", func(t *testing.T) {
@@ -348,10 +347,9 @@ func TestJobCRUDValidation(t *testing.T) {
 			"status":                      "invalid",
 		}
 
-		// API currently allows any status value
-		var job map[string]interface{}
-		client.POST("/api/job", jobRequest).ExpectStatus(201).ExpectJSON(&job)
-		assert.Equal(t, "invalid", job["status"])
+		client.POST("/api/job", jobRequest).
+			ExpectStatus(400).
+			ExpectContains(`"status":"must be active, maintenance, or paused"`)
 	})
 }
 
