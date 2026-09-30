@@ -19,7 +19,7 @@ Runs on every push to `main` branch and pull requests. Includes:
 - Sets up Go 1.21.9 and mise
 - Caches Go modules for faster builds
 - Runs linting with `mise run lint`
-- Executes unit tests with `mise run test-unit`
+- Builds portal assets and executes unit tests with `mise run test-unit`
 - Executes integration tests with `mise run test-integration`
 - Executes e2e tests with `mise run test-e2e`
 - Generates coverage reports and uploads to Codecov

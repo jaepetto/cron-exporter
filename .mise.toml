@@ -7,8 +7,11 @@ run = [
 description = "Run frontend tests/build and all Go tests"
 
 [tasks.test-unit]
-run = "go test ./pkg/... ./internal/..."
-description = "Run unit tests"
+run = [
+    "mise run ui-build",
+    "go test ./pkg/... ./internal/..."
+]
+description = "Build portal assets and run unit tests"
 
 [tasks.test-integration]
 run = "go test ./test/integration/..."
