@@ -193,7 +193,7 @@ func (s *JobStore) ListJobs(labelFilters map[string]string) ([]*Job, error) {
 	}
 	defer rows.Close()
 
-	var jobs []*Job
+	jobs := make([]*Job, 0)
 	for rows.Next() {
 		job := &Job{}
 		var labelsJSON string
@@ -284,6 +284,12 @@ func (s *JobStore) SearchJobs(criteria *JobSearchCriteria) (*JobSearchResult, er
 		argIndex++
 	}
 
+	for key, value := range criteria.Labels {
+		whereConditions = append(whereConditions, "EXISTS (SELECT 1 FROM json_each(jobs.labels) AS label WHERE label.key = ? AND CAST(label.value AS TEXT) = ?)")
+		args = append(args, key, value)
+		argIndex += 2
+	}
+
 	// Handle time-based filters
 	if criteria.LastReportedBefore != nil {
 		whereConditions = append(whereConditions, "last_reported_at < ?")
@@ -328,7 +334,7 @@ func (s *JobStore) SearchJobs(criteria *JobSearchCriteria) (*JobSearchResult, er
 	}
 	defer rows.Close()
 
-	var jobs []*Job
+	jobs := make([]*Job, 0)
 	for rows.Next() {
 		job := &Job{}
 		var labelsJSON string
@@ -345,20 +351,6 @@ func (s *JobStore) SearchJobs(criteria *JobSearchCriteria) (*JobSearchResult, er
 
 		if err := json.Unmarshal([]byte(labelsJSON), &job.Labels); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal labels: %w", err)
-		}
-
-		// Apply label filters if provided (post-query filtering for complex JSON matching)
-		if len(criteria.Labels) > 0 {
-			match := true
-			for key, value := range criteria.Labels {
-				if job.Labels[key] != value {
-					match = false
-					break
-				}
-			}
-			if !match {
-				continue
-			}
 		}
 
 		jobs = append(jobs, job)

@@ -195,19 +195,19 @@ The integrated Swagger UI provides:
 
 #### Overview
 
-The web dashboard provides a visual interface for job monitoring and management, built using Gin framework with HTMX for real-time updates.
+The web dashboard is a React and TypeScript portal embedded in the Go binary. Gin serves the portal shell, content-hashed assets, protected JSON endpoints, and Server-Sent Events.
 
 **Route:** `GET /dashboard`
-**Purpose:** Provide a simple HTML interface for job monitoring
+**Purpose:** Provide a responsive operational interface for job monitoring and management
 
 #### Visual Deadline Status Indicators
 
 The dashboard displays clear visual indicators for job health based on automatic failure thresholds:
 
-- **🟢 Green (Success)**: Job reported within deadline (on time)
-- **🟡 Yellow (Warning)**: Job approaching deadline (80% of threshold reached)
-- **🔴 Red (Danger)**: Job missed deadline (past AutomaticFailureThreshold)
-- **⚫ Gray (Inactive)**: Job in maintenance or paused status
+- **Active**: Job reported within its automatic failure threshold
+- **Overdue**: Active job exceeded its automatic failure threshold
+- **Maintenance**: Alerting is suppressed for planned work
+- **Paused**: Alerting is suppressed while the job is inactive
 
 **Status Calculation Logic:**
 ```go
@@ -220,11 +220,6 @@ if timeSinceLastReport > thresholdDuration {
     return "danger"  // Missed deadline
 }
 
-warningThreshold := time.Duration(float64(job.AutomaticFailureThreshold) * 0.8) * time.Second
-if timeSinceLastReport > warningThreshold {
-    return "warning"  // Approaching deadline
-}
-
 return "success"  // On time
 ```
 
@@ -235,8 +230,10 @@ return "success"  // On time
 - **Job management** - create, edit, toggle maintenance mode
 - **Real-time updates** via Server-Sent Events or polling fallback
 - **Responsive design** that works on desktop and mobile
+- **Accessible keyboard controls** and light, dark, and system themes
 - **Visual deadline tracking** based on per-job thresholds
 - **Authentication** with admin API keys
+- **Typed contracts** generated from `docs/openapi.yaml`
 
 #### Configuration
 
@@ -253,7 +250,7 @@ dashboard:
   sse_timeout: 30            # SSE connection timeout
   sse_heartbeat: 10          # SSE heartbeat interval
   sse_max_clients: 100       # Max concurrent SSE clients
-  polling_fallback: true     # HTMX polling fallback
+  polling_fallback: true     # Poll when SSE is unavailable
   polling_interval: 5        # Polling interval (seconds)
 ```
 
@@ -263,6 +260,7 @@ dashboard:
 - Viper: Unified config loader (YAML + env), reloadable at runtime
 - Logrus/Zap: Structured logging
 - mise: Build/test/env standardization, managed with .tool-versions
+- React, TypeScript, Vite, SWR, and Radix UI: Embedded web portal
 - Project Layout:
 
 ```text

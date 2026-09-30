@@ -6,7 +6,7 @@ Welcome! We're excited that you're interested in contributing to the cron-export
 
 ### Prerequisites
 
-- Go 1.23+ (managed via mise)
+- Go and Node.js (managed via mise)
 - Git
 - macOS, Linux, or Windows with WSL
 
@@ -19,6 +19,7 @@ Welcome! We're excited that you're interested in contributing to the cron-export
    cd cron-exporter
    mise install  # Installs Go version from .tool-versions
    go mod tidy
+   mise run ui-install
    ```
 
 2. **Verify setup works:**
@@ -122,10 +123,15 @@ This project uses a comprehensive CI/CD pipeline that runs automatically:
 
 | Command | Description | When to Use |
 |---------|-------------|-------------|
-| `mise run test` | Unit tests only | During development |
-| `mise run test-all` | All tests (unit + integration + e2e) | **Required before commits** |
+| `mise run test` | Portal tests/build and all Go tests | During development |
+| `mise run test-all` | Complete portal and Go test suite | **Required before commits** |
 | `mise run test-integration` | Integration tests | When testing API/DB changes |
 | `mise run test-e2e` | End-to-end workflows | When testing full scenarios |
+| `mise run ui-install` | Install locked portal dependencies | Initial setup/dependency changes |
+| `mise run ui-check` | Generate API types, type-check, and lint portal | Frontend changes |
+| `mise run ui-test` | Portal unit/component tests with coverage | Frontend changes |
+| `mise run ui-e2e` | Playwright tests in Chromium, Firefox, and WebKit | Portal workflow changes |
+| `mise run ui-build` | Generate content-hashed embedded portal assets | Portal/build changes |
 | `mise run build` | Single platform build | Regular development |
 | `mise run build-all` | Cross-platform builds | Testing portability |
 | `mise run dev` | Development server | Manual testing |
@@ -255,6 +261,8 @@ func TestNewFeature(t *testing.T) {
 cmd/cronmetrics/        # Main application entry point
 pkg/
   api/                  # REST API server implementation
+   dashboard/            # Portal API, SSE, auth, and embedded asset server
+   jobservice/           # Shared job validation and application operations
   metrics/              # Prometheus metrics collector
   config/               # Configuration management
   model/                # Database models and operations
@@ -265,6 +273,8 @@ internal/
 test/
   integration/          # Integration tests
   e2e/                  # End-to-end workflow tests
+   e2e-browser/          # Playwright server configuration
+ui/                     # React/TypeScript portal and browser tests
 migrations/             # Database schema migrations
 docs/                   # API documentation and specs
 ```

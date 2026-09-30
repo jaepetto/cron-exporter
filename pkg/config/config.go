@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -68,7 +69,7 @@ type DashboardConfig struct {
 	SSETimeout      int  `mapstructure:"sse_timeout"`      // Connection timeout in seconds
 	SSEHeartbeat    int  `mapstructure:"sse_heartbeat"`    // Heartbeat interval in seconds
 	SSEMaxClients   int  `mapstructure:"sse_max_clients"`  // Maximum concurrent SSE clients
-	PollingFallback bool `mapstructure:"polling_fallback"` // Enable HTMX polling fallback
+	PollingFallback bool `mapstructure:"polling_fallback"` // Poll when SSE is unavailable
 	PollingInterval int  `mapstructure:"polling_interval"` // Polling interval in seconds
 }
 
@@ -161,7 +162,7 @@ func setDefaults() {
 	viper.SetDefault("dashboard.sse_timeout", 300)       // 5 minutes
 	viper.SetDefault("dashboard.sse_heartbeat", 30)      // 30 seconds
 	viper.SetDefault("dashboard.sse_max_clients", 100)   // 100 concurrent connections
-	viper.SetDefault("dashboard.polling_fallback", true) // Enable HTMX polling fallback
+	viper.SetDefault("dashboard.polling_fallback", true) // Poll when SSE is unavailable
 	viper.SetDefault("dashboard.polling_interval", 5)    // 5 seconds
 }
 
@@ -199,13 +200,17 @@ func validateConfig(config *Config) error {
 
 	// Validate dashboard configuration
 	if config.Dashboard.Enabled {
-		if config.Dashboard.Path == "" {
+		dashboardPath := config.Dashboard.Path
+		if dashboardPath == "" {
 			return fmt.Errorf("dashboard path cannot be empty when dashboard is enabled")
 		}
-
-		// Check for path conflicts
-		if config.Dashboard.Path == config.Metrics.Path {
-			return fmt.Errorf("dashboard path cannot be the same as metrics path")
+		if !strings.HasPrefix(dashboardPath, "/") || dashboardPath == "/" || path.Clean(dashboardPath) != dashboardPath {
+			return fmt.Errorf("dashboard path must be a canonical absolute path without a trailing slash")
+		}
+		for _, reservedPath := range []string{"/api", "/health", "/swagger", config.Metrics.Path} {
+			if dashboardPath == reservedPath || strings.HasPrefix(dashboardPath, reservedPath+"/") {
+				return fmt.Errorf("dashboard path %q conflicts with reserved path %q", dashboardPath, reservedPath)
+			}
 		}
 
 		if config.Dashboard.RefreshInterval < 1 || config.Dashboard.RefreshInterval > 300 {
@@ -214,6 +219,22 @@ func validateConfig(config *Config) error {
 
 		if config.Dashboard.PageSize < 5 || config.Dashboard.PageSize > 100 {
 			return fmt.Errorf("dashboard page size must be between 5 and 100")
+		}
+
+		if config.Dashboard.SSEEnabled {
+			if config.Dashboard.SSETimeout < 1 || config.Dashboard.SSETimeout > 86400 {
+				return fmt.Errorf("dashboard SSE timeout must be between 1 and 86400 seconds")
+			}
+			if config.Dashboard.SSEHeartbeat < 1 || config.Dashboard.SSEHeartbeat >= config.Dashboard.SSETimeout {
+				return fmt.Errorf("dashboard SSE heartbeat must be positive and less than the SSE timeout")
+			}
+			if config.Dashboard.SSEMaxClients < 1 || config.Dashboard.SSEMaxClients > 10000 {
+				return fmt.Errorf("dashboard SSE max clients must be between 1 and 10000")
+			}
+		}
+
+		if config.Dashboard.PollingFallback && (config.Dashboard.PollingInterval < 1 || config.Dashboard.PollingInterval > 300) {
+			return fmt.Errorf("dashboard polling interval must be between 1 and 300 seconds")
 		}
 	}
 

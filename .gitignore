@@ -3,6 +3,11 @@ dist/
 
 # Node.js dependencies for Tailwind CSS
 node_modules/
+ui/dist/
+ui/coverage/
+ui/test-results/
+ui/playwright-report/
+ui/*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -15,3 +20,7 @@ coverage.out
 coverage.html
 coverage-*.out
 coverage-*.html
+
+# Generated portal bundle (built before Go compilation)
+pkg/dashboard/web/*
+!pkg/dashboard/web/placeholder.txt

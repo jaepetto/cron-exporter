@@ -25,12 +25,16 @@ jobs:
       with:
         node-version: '25.1.0'
         cache: 'npm'
+        cache-dependency-path: ui/package-lock.json
 
     - name: Install mise
       uses: jdx/mise-action@v3
 
     - name: Install npm dependencies
-      run: npm ci
+      run: mise run ui-install
+
+    - name: Check portal
+      run: mise run ui-check
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -59,6 +63,13 @@ jobs:
 
     - name: Run e2e tests
       run: mise run test-e2e
+
+    - name: Install Playwright browsers
+      working-directory: ui
+      run: npx playwright install --with-deps chromium firefox webkit
+
+    - name: Run portal browser tests
+      run: mise run ui-e2e
 
     - name: Generate test coverage
       run: mise run test-coverage
@@ -89,12 +100,13 @@ jobs:
       with:
         node-version: '25.1.0'
         cache: 'npm'
+        cache-dependency-path: ui/package-lock.json
 
     - name: Install mise
       uses: jdx/mise-action@v3
 
     - name: Install npm dependencies
-      run: npm ci
+      run: mise run ui-install
 
     - name: Cache Go modules
       uses: actions/cache@v4
@@ -141,7 +153,7 @@ jobs:
     - name: Run Gosec Security Scanner
       uses: securego/gosec@v2.15.0
       with:
-        args: './...'
+        args: '-exclude-dir=ui ./...'
 
     - name: Run govulncheck
       run: |

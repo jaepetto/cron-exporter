@@ -3,17 +3,23 @@
 .gitignore
 .github
 
-# Documentation
+# Documentation (OpenAPI is required to generate portal types)
 README.md
 CHANGELOG.md
 CONTRIBUTING.md
-docs/
+docs/*
+!docs/openapi.yaml
 
 # Build artifacts
 bin/
 dist/
 *.out
-*.html
+coverage*.html
+**/node_modules/
+ui/coverage/
+ui/test-results/
+ui/playwright-report/
+ui/dist/
 
 # Test files
 test/

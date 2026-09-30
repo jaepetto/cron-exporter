@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,12 +22,16 @@ const (
 	EventJobUpdated      EventType = "job-updated"
 	EventJobDeleted      EventType = "job-deleted"
 	EventHeartbeat       EventType = "heartbeat"
+	EventConnected       EventType = "connected"
+	EventReset           EventType = "reset"
 )
 
-// SSEEvent represents a server-sent event
+// SSEEvent represents a cache invalidation sent to dashboard clients.
 type SSEEvent struct {
-	Type EventType   `json:"type"`
-	Data interface{} `json:"data"`
+	ID        string    `json:"id"`
+	Type      EventType `json:"type"`
+	JobID     *int      `json:"job_id,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // JobStatusUpdate represents a job status change event
@@ -41,34 +46,35 @@ type JobStatusUpdate struct {
 
 // SSEClient represents a connected SSE client
 type SSEClient struct {
-	id       string
-	ctx      context.Context
-	cancel   context.CancelFunc
-	events   chan SSEEvent
-	ginCtx   *gin.Context
-	lastPing time.Time
+	id     string
+	ctx    context.Context
+	cancel context.CancelFunc
+	events chan SSEEvent
+	ginCtx *gin.Context
 }
 
 // Broadcaster manages server-sent events for real-time updates
 type Broadcaster struct {
 	config    *config.DashboardConfig
 	logger    *logrus.Logger
-	jobStore  *model.JobStore
 	clients   map[string]*SSEClient
 	clientsMu sync.RWMutex
 	events    chan SSEEvent
 	quit      chan struct{}
+	done      chan struct{}
+	stopOnce  sync.Once
+	sequence  atomic.Uint64
 }
 
 // NewBroadcaster creates a new SSE broadcaster
-func NewBroadcaster(config *config.DashboardConfig, jobStore *model.JobStore, logger *logrus.Logger) *Broadcaster {
+func NewBroadcaster(config *config.DashboardConfig, logger *logrus.Logger) *Broadcaster {
 	b := &Broadcaster{
-		config:   config,
-		logger:   logger,
-		jobStore: jobStore,
-		clients:  make(map[string]*SSEClient),
-		events:   make(chan SSEEvent, 100),
-		quit:     make(chan struct{}),
+		config:  config,
+		logger:  logger,
+		clients: make(map[string]*SSEClient),
+		events:  make(chan SSEEvent, 100),
+		quit:    make(chan struct{}),
+		done:    make(chan struct{}),
 	}
 
 	go b.run()
@@ -77,6 +83,7 @@ func NewBroadcaster(config *config.DashboardConfig, jobStore *model.JobStore, lo
 
 // run starts the broadcaster event loop
 func (b *Broadcaster) run() {
+	defer close(b.done)
 	ticker := time.NewTicker(time.Duration(b.config.SSEHeartbeat) * time.Second)
 	defer ticker.Stop()
 
@@ -86,7 +93,6 @@ func (b *Broadcaster) run() {
 			b.broadcast(event)
 		case <-ticker.C:
 			b.sendHeartbeat()
-			b.cleanupStaleClients()
 		case <-b.quit:
 			b.closeAllClients()
 			return
@@ -110,15 +116,14 @@ func (b *Broadcaster) AddClient(ctx *gin.Context) *SSEClient {
 	}
 
 	clientID := fmt.Sprintf("client_%d_%d", time.Now().UnixNano(), len(b.clients))
-	clientCtx, cancel := context.WithTimeout(context.Background(), time.Duration(b.config.SSETimeout)*time.Second)
+	clientCtx, cancel := context.WithTimeout(ctx.Request.Context(), time.Duration(b.config.SSETimeout)*time.Second)
 
 	client := &SSEClient{
-		id:       clientID,
-		ctx:      clientCtx,
-		cancel:   cancel,
-		events:   make(chan SSEEvent, 10),
-		ginCtx:   ctx,
-		lastPing: time.Now(),
+		id:     clientID,
+		ctx:    clientCtx,
+		cancel: cancel,
+		events: make(chan SSEEvent, 10),
+		ginCtx: ctx,
 	}
 
 	b.clients[clientID] = client
@@ -141,28 +146,12 @@ func (b *Broadcaster) RemoveClient(clientID string) {
 }
 
 // BroadcastJobStatusChange broadcasts a job status change event
-func (b *Broadcaster) BroadcastJobStatusChange(job *model.Job, isFailure bool) {
+func (b *Broadcaster) BroadcastJobStatusChange(job *model.Job, _ bool) {
 	if !b.config.SSEEnabled {
 		return
 	}
 
-	event := SSEEvent{
-		Type: EventJobStatusChange,
-		Data: JobStatusUpdate{
-			JobID:          job.ID,
-			Name:           job.Name,
-			Host:           job.Host,
-			Status:         job.Status,
-			LastReportedAt: job.LastReportedAt,
-			IsFailure:      isFailure,
-		},
-	}
-
-	select {
-	case b.events <- event:
-	default:
-		b.logger.Warn("Event channel full, dropping job status change event")
-	}
+	b.enqueue(b.newEvent(EventJobStatusChange, &job.ID))
 }
 
 // BroadcastJobCreated broadcasts a job created event
@@ -171,16 +160,7 @@ func (b *Broadcaster) BroadcastJobCreated(job *model.Job) {
 		return
 	}
 
-	event := SSEEvent{
-		Type: EventJobCreated,
-		Data: job,
-	}
-
-	select {
-	case b.events <- event:
-	default:
-		b.logger.Warn("Event channel full, dropping job created event")
-	}
+	b.enqueue(b.newEvent(EventJobCreated, &job.ID))
 }
 
 // BroadcastJobUpdated broadcasts a job updated event
@@ -189,82 +169,40 @@ func (b *Broadcaster) BroadcastJobUpdated(job *model.Job) {
 		return
 	}
 
-	event := SSEEvent{
-		Type: EventJobUpdated,
-		Data: job,
-	}
-
-	select {
-	case b.events <- event:
-	default:
-		b.logger.Warn("Event channel full, dropping job updated event")
-	}
+	b.enqueue(b.newEvent(EventJobUpdated, &job.ID))
 }
 
 // BroadcastJobDeleted broadcasts a job deleted event
-func (b *Broadcaster) BroadcastJobDeleted(jobID int, name, host string) {
+func (b *Broadcaster) BroadcastJobDeleted(jobID int, _, _ string) {
 	if !b.config.SSEEnabled {
 		return
 	}
 
-	event := SSEEvent{
-		Type: EventJobDeleted,
-		Data: map[string]interface{}{
-			"job_id": jobID,
-			"name":   name,
-			"host":   host,
-		},
-	}
-
-	select {
-	case b.events <- event:
-	default:
-		b.logger.Warn("Event channel full, dropping job deleted event")
-	}
+	b.enqueue(b.newEvent(EventJobDeleted, &jobID))
 }
 
 // broadcast sends an event to all connected clients
 func (b *Broadcaster) broadcast(event SSEEvent) {
 	b.clientsMu.RLock()
-	defer b.clientsMu.RUnlock()
-
+	var slowClientIDs []string
 	for clientID, client := range b.clients {
 		select {
 		case client.events <- event:
 		default:
-			b.logger.WithField("client_id", clientID).Warn("Client event channel full, dropping event")
+			slowClientIDs = append(slowClientIDs, clientID)
 		}
+	}
+	b.clientsMu.RUnlock()
+
+	for _, clientID := range slowClientIDs {
+		b.logger.WithField("client_id", clientID).Warn("Disconnecting slow SSE client for full revalidation")
+		b.RemoveClient(clientID)
 	}
 }
 
 // sendHeartbeat sends heartbeat events to all clients
 func (b *Broadcaster) sendHeartbeat() {
-	event := SSEEvent{
-		Type: EventHeartbeat,
-		Data: map[string]interface{}{
-			"timestamp": time.Now(),
-		},
-	}
-
-	b.broadcast(event)
-}
-
-// cleanupStaleClients removes clients that haven't been active
-func (b *Broadcaster) cleanupStaleClients() {
-	b.clientsMu.Lock()
-	defer b.clientsMu.Unlock()
-
-	staleTimeout := time.Duration(b.config.SSETimeout) * time.Second
-	now := time.Now()
-
-	for clientID, client := range b.clients {
-		if now.Sub(client.lastPing) > staleTimeout {
-			b.logger.WithField("client_id", clientID).Info("Removing stale SSE client")
-			client.cancel()
-			close(client.events)
-			delete(b.clients, clientID)
-		}
-	}
+	b.broadcast(b.newEvent(EventHeartbeat, nil))
 }
 
 // closeAllClients closes all connected clients
@@ -283,7 +221,8 @@ func (b *Broadcaster) closeAllClients() {
 
 // Stop stops the broadcaster
 func (b *Broadcaster) Stop() {
-	close(b.quit)
+	b.stopOnce.Do(func() { close(b.quit) })
+	<-b.done
 }
 
 // GetStats returns broadcaster statistics
@@ -302,4 +241,24 @@ func (b *Broadcaster) GetStats() map[string]interface{} {
 func (b *Broadcaster) ServeSSE(client *SSEClient) {
 	// This method is now handled directly in the handler
 	// Keep for compatibility but don't use
+}
+
+func (b *Broadcaster) newEvent(eventType EventType, jobID *int) SSEEvent {
+	sequence := b.sequence.Add(1)
+	now := time.Now().UTC()
+	return SSEEvent{
+		ID:        fmt.Sprintf("%d-%d", now.UnixMilli(), sequence),
+		Type:      eventType,
+		JobID:     jobID,
+		Timestamp: now,
+	}
+}
+
+func (b *Broadcaster) enqueue(event SSEEvent) {
+	select {
+	case b.events <- event:
+	default:
+		b.logger.Warn("SSE event queue full; disconnecting clients for full revalidation")
+		b.closeAllClients()
+	}
 }

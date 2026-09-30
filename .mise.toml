@@ -1,6 +1,10 @@
 [tasks.test]
-run = "go test ./..."
-description = "Run all tests (unit tests only)"
+run = [
+    "mise run ui-test",
+    "mise run ui-build",
+    "go test ./..."
+]
+description = "Run frontend tests/build and all Go tests"
 
 [tasks.test-unit]
 run = "go test ./pkg/... ./internal/..."
@@ -15,12 +19,12 @@ run = "go test ./test/e2e/..."
 description = "Run end-to-end tests"
 
 [tasks.test-all]
-run = "go test ./... && go test ./test/integration/... && go test ./test/e2e/..."
-description = "Run all tests: unit, integration, and e2e"
+run = "mise run test"
+description = "Run the complete frontend and Go test suite"
 
 [tasks.test-coverage]
-run = "go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
-description = "Run tests with coverage report"
+run = "npm --prefix ui test && go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html"
+description = "Run frontend and Go tests with coverage reports"
 
 [tasks.test-coverage-integration]
 run = "go test -coverprofile=coverage-integration.out ./test/integration/... && go tool cover -html=coverage-integration.out -o coverage-integration.html"
@@ -30,38 +34,50 @@ description = "Run integration tests with coverage"
 run = "go test -v ./..."
 description = "Run all tests with verbose output"
 
-[tasks.build-css]
-run = "npm run build-css"
-description = "Build Tailwind CSS for production"
+[tasks.ui-install]
+run = "npm ci --prefix ui"
+description = "Install locked portal dependencies"
 
-[tasks.watch-css]
-run = "npm run watch-css"
-description = "Watch for changes and rebuild Tailwind CSS automatically"
+[tasks.ui-generate]
+run = "npm --prefix ui run gen:api"
+description = "Generate portal types from OpenAPI"
 
-[tasks.dev-css]
-run = "npm run dev-css"
-description = "Build Tailwind CSS for development with watch mode"
+[tasks.ui-check]
+run = "npm --prefix ui run check:api && npm --prefix ui run typecheck && npm --prefix ui run lint"
+description = "Generate, type-check, and lint the portal"
+
+[tasks.ui-test]
+run = "npm --prefix ui test"
+description = "Run portal unit and component tests"
+
+[tasks.ui-build]
+run = "npm --prefix ui run build"
+description = "Build content-hashed portal assets for Go embedding"
+
+[tasks.ui-e2e]
+run = "npm --prefix ui run test:e2e"
+description = "Run portal Playwright tests"
 
 [tasks.build]
 run = [
-    "mise run build-css",
+    "mise run ui-build",
     "go build -o bin/cronmetrics ./cmd/cronmetrics"
 ]
-description = "Build Tailwind CSS and static binary"
+description = "Build the portal and static binary"
 
 [tasks.dev]
 run = [
     "mise run build",
     "./bin/cronmetrics serve --config dev-config-dashboard.yaml --dev &"
 ]
-description = "Build CSS, build binary, and start development server with dashboard enabled"
+description = "Build the portal and binary, then start the development server"
 
 [tasks.stop-dev]
 run = "pkill -f 'cronmetrics'"
 description = "Stop development server"
 
 [tasks.clean]
-run = "rm -rf bin/ dist/ coverage*.out coverage*.html gosec-report.* pkg/dashboard/assets/tailwind.css"
+run = "rm -rf bin/ dist/ coverage*.out coverage*.html gosec-report.* ui/coverage ui/test-results ui/playwright-report && npm --prefix ui run clean:dist"
 description = "Clean build artifacts, coverage reports, security reports, and generated CSS"
 
 [tasks.lint]
@@ -69,7 +85,7 @@ run = "go vet ./... && go fmt ./..."
 description = "Run linter and formatter"
 
 [tasks.security]
-run = "gosec ./..."
+run = "gosec -exclude-dir=ui ./..."
 description = "Run gosec security scanner"
 
 [tasks.security-install]
@@ -77,7 +93,7 @@ run = "go install github.com/securego/gosec/v2/cmd/gosec@latest"
 description = "Install gosec security scanner"
 
 [tasks.security-report]
-run = "gosec -fmt json -out gosec-report.json ./... && gosec -fmt junit-xml -out gosec-report.xml ./..."
+run = "gosec -exclude-dir=ui -fmt json -out gosec-report.json ./... && gosec -exclude-dir=ui -fmt junit-xml -out gosec-report.xml ./..."
 description = "Run gosec with detailed reports (JSON and XML)"
 
 [tasks.build-all]
@@ -94,9 +110,9 @@ MAIN_PATH="./cmd/cronmetrics"
 # Create dist directory
 mkdir -p dist
 
-# Build CSS assets
-echo "Building CSS assets..."
-mise run build-css
+# Build portal assets
+echo "Building portal assets..."
+mise run ui-build
 
 # Define target platforms
 declare -a platforms=(
@@ -163,9 +179,9 @@ MAIN_PATH="./cmd/cronmetrics"
 # Create dist directory
 mkdir -p dist
 
-# Build CSS assets
-echo "Building CSS assets..."
-mise run build-css
+# Build portal assets
+echo "Building portal assets..."
+mise run ui-build
 
 # Define target platforms for release
 declare -a platforms=(
@@ -215,7 +231,7 @@ ls -la dist/
 description = "Build CSS and release binaries with version info and create compressed archives"
 
 [tasks.ci]
-run = "mise run lint && mise run security && mise run test-all && mise run build"
+run = "mise run ui-install && mise run ui-check && mise run lint && mise run security && mise run test-all && mise run build"
 description = "Run CI pipeline: lint, security scan, test, build"
 
 [tasks.ci-full]
