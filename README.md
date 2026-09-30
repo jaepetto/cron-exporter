@@ -252,6 +252,8 @@ The portal is a React and TypeScript application compiled into content-hashed as
 ./bin/cronmetrics job show 1
 ```
 
+CLI JSON output omits API keys. Use the text-form `job show` command to retrieve a key.
+
 #### Update a job
 ```bash
 # Set maintenance mode

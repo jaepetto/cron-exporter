@@ -10,7 +10,7 @@ COPY ui ./ui
 RUN npm --prefix ui run build
 
 # Go build stage
-FROM golang:1.25.3-alpine AS builder
+FROM golang:1.26.8-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata

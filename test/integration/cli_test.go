@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -120,6 +121,13 @@ func TestCLIJobCommands(t *testing.T) {
 		assert.Contains(t, stdout, "job-2")
 		assert.Contains(t, stdout, "job-3")
 		assert.Contains(t, stdout, "test-host")
+
+		jsonResult := cliTest.RunCommand("job", "list", "--json")
+		jsonResult.ExpectSuccess()
+		var jobs []map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(jsonResult.Stdout), &jobs))
+		require.NotEmpty(t, jobs)
+		assert.NotContains(t, jobs[0], "api_key")
 	})
 
 	t.Run("JobListEmpty", func(t *testing.T) {
@@ -162,7 +170,14 @@ func TestCLIJobCommands(t *testing.T) {
 		result.ExpectSuccess().
 			ExpectStdoutContains("show-test").
 			ExpectStdoutContains("test-host").
-			ExpectStdoutContains("2400")
+			ExpectStdoutContains("2400").
+			ExpectStdoutContains("API Key:")
+
+		jsonResult := cliTest.RunCommand("job", "show", jobID, "--json")
+		jsonResult.ExpectSuccess()
+		var job map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(jsonResult.Stdout), &job))
+		assert.NotContains(t, job, "api_key")
 	})
 
 	t.Run("JobUpdate", func(t *testing.T) {
@@ -311,7 +326,8 @@ func TestCLIGlobalFlags(t *testing.T) {
 // buildBinary ensures the cronmetrics binary is built for testing
 func buildBinary(t *testing.T) {
 	// Get the project root directory (assuming tests are in test/integration)
-	projectRoot := filepath.Join("..", "..")
+	projectRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	require.NoError(t, err)
 	binaryPath := filepath.Join(projectRoot, "bin", "cronmetrics")
 
 	// Build the binary without config flags
@@ -322,7 +338,7 @@ func buildBinary(t *testing.T) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err := cmd.Run()
+	err = cmd.Run()
 	require.NoError(t, err,
 		fmt.Sprintf("Failed to build binary: %s\nStdout: %s\nStderr: %s",
 			cmd.String(), stdout.String(), stderr.String()))

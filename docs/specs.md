@@ -301,6 +301,7 @@ cronmetrics job update 2 --name backup2-renamed --host db2  # Can update name/ho
 cronmetrics job list --label env=prod
 cronmetrics job list --show-api-keys  # Shows masked keys for security
 cronmetrics job show 1  # Shows full API key and job details
+cronmetrics job show 1 --json  # Omits the API key
 ```
 
 ### Logging Conventions

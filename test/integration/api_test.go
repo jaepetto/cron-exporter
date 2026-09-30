@@ -174,7 +174,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("SuccessfulJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -200,7 +200,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("FailedJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -223,7 +223,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("InvalidJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -241,7 +241,7 @@ func TestJobResultSubmission(t *testing.T) {
 	t.Run("MissingJobResult", func(t *testing.T) {
 		client := testutil.NewHTTPClient(t, server.URL()).
 			WithHeaders(map[string]string{
-				"X-API-Key":    "cm_test_backup_key",
+				"X-API-Key":    "fixture-alpha",
 				"Content-Type": "application/json",
 			})
 
@@ -266,7 +266,7 @@ func TestMetricsEndpoint(t *testing.T) {
 	// Submit some results to generate metrics
 	resultClient := testutil.NewHTTPClient(t, server.URL()).
 		WithHeaders(map[string]string{
-			"X-API-Key":    "cm_test_backup_key",
+			"X-API-Key":    "fixture-alpha",
 			"Content-Type": "application/json",
 		})
 

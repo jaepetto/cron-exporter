@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Updated gosec, Go toolchains, and vulnerable Go dependencies; omitted job API keys from CLI JSON output
+- Replaced credential-like API key values in test fixtures with synthetic labels
 - Implemented the previously stubbed dashboard job-status endpoint
 - Fixed label filtering so SQL counts and pagination match returned rows
 - Fixed empty job collections serializing as `null` instead of `[]`

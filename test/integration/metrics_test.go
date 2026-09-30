@@ -71,7 +71,7 @@ func TestMetricsWithJobResults(t *testing.T) {
 	// Submit some job results
 	resultClient := testutil.NewHTTPClient(t, server.URL()).
 		WithHeaders(map[string]string{
-			"X-API-Key":    "cm_test_backup_key",
+			"X-API-Key":    "fixture-alpha",
 			"Content-Type": "application/json",
 		})
 
